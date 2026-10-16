@@ -1,5 +1,5 @@
 // 활동 기록 목록 (STAR 로 정리된 카드)
-// 연필 → 기록 작성 / 경험 리포트·포트폴리오로 만들기
+// 연필 → 기록 작성 / 카드의 수정 → 기록 수정(삭제는 그 안에서) / 경험 리포트·포트폴리오로 만들기
 // 검색창: 제목 · 원문 · STAR 내용으로 찾기
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -9,6 +9,7 @@ import '../../router/routes.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
+import 'record_edit_screen.dart';
 
 class RecordListScreen extends StatefulWidget {
   const RecordListScreen({super.key});
@@ -36,6 +37,9 @@ class _RecordListScreenState extends State<RecordListScreen> {
   /// 제목 · 원문 · STAR 에 검색어가 들어 있는지
   static bool _matches(ActivityRecord r, String q) =>
       [r.title, r.raw, r.star.s, r.star.t, r.star.a, r.star.r].any((t) => t.toLowerCase().contains(q));
+
+  void _openEdit(ActivityRecord r) =>
+      Navigator.push(context, MaterialPageRoute<void>(builder: (_) => RecordEditScreen(record: r)));
 
   @override
   Widget build(BuildContext context) {
@@ -92,7 +96,7 @@ class _RecordListScreenState extends State<RecordListScreen> {
                       record: shown[i],
                       // 검색 중에는 순서 번호를 숨김
                       order: q.isEmpty ? '${i + 1}/${shown.length}' : null,
-                      onDelete: () => state.removeRecord(shown[i].id),
+                      onEdit: () => _openEdit(shown[i]),
                     ),
               ],
             ),
@@ -102,12 +106,12 @@ class _RecordListScreenState extends State<RecordListScreen> {
 
 /// STAR 기록 카드 (다른 화면에서도 재사용 가능)
 class RecordCard extends StatelessWidget {
-  const RecordCard({super.key, required this.record, this.order, this.onDelete});
+  const RecordCard({super.key, required this.record, this.order, this.onEdit});
   final ActivityRecord record;
 
   /// 목록 안 순서 (예: 1/3). 없으면 안 보임
   final String? order;
-  final VoidCallback? onDelete;
+  final VoidCallback? onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -149,13 +153,14 @@ class RecordCard extends StatelessWidget {
                 ),
             ]),
           ],
-          if (onDelete != null)
+          if (onEdit != null)
             Align(
               alignment: Alignment.centerRight,
-              child: IconButton(
-                tooltip: '기록 삭제',
-                onPressed: onDelete,
-                icon: const Icon(Icons.delete_outline, size: 18, color: AppColors.subtle),
+              child: TextButton.icon(
+                onPressed: onEdit,
+                style: TextButton.styleFrom(foregroundColor: AppColors.muted, visualDensity: VisualDensity.compact),
+                icon: const Icon(Icons.edit_outlined, size: 15),
+                label: Text('수정', style: AppText.caption.copyWith(color: AppColors.muted)),
               ),
             ),
         ],
