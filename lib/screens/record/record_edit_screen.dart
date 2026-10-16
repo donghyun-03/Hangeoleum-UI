@@ -1,5 +1,5 @@
 // 기록 수정 — 저장된 기록의 제목 · STAR 를 항목별로 고쳐서 저장
-// 오른쪽 위 휴지통 → 기록 삭제
+// 오른쪽 위 휴지통 → 기록 삭제 / AI로 다시 작성하기 → 제목 · STAR 를 모아 기록 작성 화면으로
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -7,6 +7,7 @@ import '../../models/models.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
+import 'record_write_screen.dart';
 
 class RecordEditScreen extends StatefulWidget {
   const RecordEditScreen({super.key, required this.record});
@@ -37,6 +38,21 @@ class _RecordEditScreenState extends State<RecordEditScreen> {
         'a' => _star.copyWith(a: v),
         _ => _star.copyWith(r: v),
       };
+
+  /// 지금 제목 · STAR 를 한 글로 모아 기록 작성 화면으로 → AI 정리 → 저장하면 이 기록이 바뀜
+  void _rewrite() {
+    final text = [
+      _title.text.trim(),
+      '상황: ${_star.s}',
+      '목표: ${_star.t}',
+      '행동: ${_star.a}',
+      '결과: ${_star.r}',
+    ].join('\n');
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(builder: (_) => RecordWriteScreen(editing: widget.record, initialText: text)),
+    );
+  }
 
   void _save() {
     final title = _title.text.trim();
@@ -107,6 +123,13 @@ class _RecordEditScreenState extends State<RecordEditScreen> {
                   Text(_get(k), style: AppText.small.copyWith(fontSize: 13)),
               ],
             ]),
+          ),
+          const SizedBox(height: 4),
+          AppButton(
+            label: 'AI로 다시 작성하기',
+            icon: Icons.auto_awesome,
+            variant: ButtonVariant.outline,
+            onPressed: _rewrite,
           ),
         ],
       ),
