@@ -12,17 +12,36 @@ import '../../widgets/common.dart';
 class RecordListScreen extends StatelessWidget {
   const RecordListScreen({super.key});
 
+  /// 'YY.MM.DD' → 정렬용 숫자 (예: 26.10.16 → 261016)
+  static int _dateKey(String date) {
+    final parts = date.split('.');
+    if (parts.length != 3) return 0;
+    return parts.fold(0, (sum, p) => sum * 100 + (int.tryParse(p) ?? 0));
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
+    // 날짜 순(오래된 기록 → 최근 기록)으로 정렬
+    final sorted = [...state.records]..sort((a, b) => _dateKey(a.date).compareTo(_dateKey(b.date)));
     return Scaffold(
       appBar: AppBar(title: const Text('활동 기록')),
       bottomNavigationBar: BottomBar(
         child: Row(children: [
+          // 좁은 폰에서는 글자가 넘치지 않게 버튼을 살짝 줄여서 보여 줌
           Expanded(
-            child: AppButton(
-              label: '경험 리포트 · 포트폴리오로 만들기',
-              onPressed: () => AppNav.toComingSoon(context, '경험 리포트 · 포트폴리오'),
+            child: LayoutBuilder(
+              builder: (context, box) => FittedBox(
+                fit: BoxFit.scaleDown,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minWidth: box.maxWidth),
+                  child: AppButton(
+                    label: '경험 리포트·포트폴리오로 만들기',
+                    expand: false,
+                    onPressed: () => AppNav.toComingSoon(context, '경험 리포트 · 포트폴리오'),
+                  ),
+                ),
+              ),
             ),
           ),
           const SizedBox(width: 8),
@@ -39,7 +58,12 @@ class RecordListScreen extends StatelessWidget {
           : ListView(
               padding: const EdgeInsets.all(20),
               children: [
-                for (final r in state.records) RecordCard(record: r, onDelete: () => state.removeRecord(r.id)),
+                for (var i = 0; i < sorted.length; i++)
+                  RecordCard(
+                    record: sorted[i],
+                    order: '${i + 1}/${sorted.length}',
+                    onDelete: () => state.removeRecord(sorted[i].id),
+                  ),
               ],
             ),
     );
@@ -48,8 +72,11 @@ class RecordListScreen extends StatelessWidget {
 
 /// STAR 기록 카드 (다른 화면에서도 재사용 가능)
 class RecordCard extends StatelessWidget {
-  const RecordCard({super.key, required this.record, this.onDelete});
+  const RecordCard({super.key, required this.record, this.order, this.onDelete});
   final ActivityRecord record;
+
+  /// 목록 안 순서 (예: 1/3). 없으면 안 보임
+  final String? order;
   final VoidCallback? onDelete;
 
   @override
@@ -61,14 +88,13 @@ class RecordCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(children: [
-            TagBadge('STEP ${r.step}', tone: BadgeTone.gray),
-            const SizedBox(width: 6),
-            Text('AI 정리', style: AppText.caption.copyWith(fontSize: 11)),
-            const Spacer(),
-            Text(r.date, style: AppText.caption.copyWith(fontSize: 11)),
+            Expanded(child: Text(r.title, style: AppText.bodyBold)),
+            if (order != null) ...[
+              const SizedBox(width: 8),
+              Text(order!, style: AppText.caption.copyWith(fontSize: 11)),
+            ],
           ]),
-          const SizedBox(height: 8),
-          Text(r.title, style: AppText.bodyBold),
+          Text(r.date, style: AppText.caption.copyWith(fontSize: 11)),
           const SizedBox(height: 6),
           for (final (k, v) in rows)
             Padding(
