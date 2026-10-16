@@ -99,8 +99,8 @@ class _RecordWriteScreenState extends State<RecordWriteScreen> {
       id: 'rec-${now.microsecondsSinceEpoch}',
       step: state.user.currentStep,
       title: mission?.title ?? (text.split('\n').first.length > 24 ? text.split('\n').first.substring(0, 24) : text.split('\n').first),
-      // YY.MM.DD (예: 26.10.16)
-      date: '${(now.year % 100).toString().padLeft(2, '0')}.${now.month.toString().padLeft(2, '0')}.${now.day.toString().padLeft(2, '0')}',
+      // YYYY-MM-DD (예: 2026-10-16)
+      date: '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}',
       raw: text,
       star: Star(s: '(AI 정리 예정) 상황', t: '(AI 정리 예정) 목표', a: text, r: '(AI 정리 예정) 결과'),
       attachments: List.of(_attachments),

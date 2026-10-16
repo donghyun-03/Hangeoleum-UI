@@ -135,7 +135,7 @@ class ActivityRecord {
   final String id;
   final int step;
   final String title;
-  final String date; // YY.MM.DD (예: 26.10.16)
+  final String date; // YYYY-MM-DD (예: 2026-10-16)
   final String raw; // 사용자가 쓴 원문
   final Star star; // AI 정리 결과
   final List<Attachment> attachments;

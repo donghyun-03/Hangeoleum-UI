@@ -26,9 +26,9 @@ class _RecordListScreenState extends State<RecordListScreen> {
     super.dispose();
   }
 
-  /// 'YY.MM.DD' → 정렬용 숫자 (예: 26.10.16 → 261016)
+  /// 'YYYY-MM-DD' → 정렬용 숫자 (예: 2026-10-16 → 20261016)
   static int _dateKey(String date) {
-    final parts = date.split('.');
+    final parts = date.split('-');
     if (parts.length != 3) return 0;
     return parts.fold(0, (sum, p) => sum * 100 + (int.tryParse(p) ?? 0));
   }
