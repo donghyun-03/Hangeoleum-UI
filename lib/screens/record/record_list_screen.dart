@@ -1,5 +1,6 @@
 // 활동 기록 목록 (STAR 로 정리된 카드)
 // 연필 → 기록 작성 / 경험 리포트·포트폴리오로 만들기
+// 검색창: 제목 · 원문 · STAR 내용으로 찾기
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -9,8 +10,21 @@ import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
 
-class RecordListScreen extends StatelessWidget {
+class RecordListScreen extends StatefulWidget {
   const RecordListScreen({super.key});
+
+  @override
+  State<RecordListScreen> createState() => _RecordListScreenState();
+}
+
+class _RecordListScreenState extends State<RecordListScreen> {
+  final _search = TextEditingController();
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
 
   /// 'YY.MM.DD' → 정렬용 숫자 (예: 26.10.16 → 261016)
   static int _dateKey(String date) {
@@ -19,11 +33,17 @@ class RecordListScreen extends StatelessWidget {
     return parts.fold(0, (sum, p) => sum * 100 + (int.tryParse(p) ?? 0));
   }
 
+  /// 제목 · 원문 · STAR 에 검색어가 들어 있는지
+  static bool _matches(ActivityRecord r, String q) =>
+      [r.title, r.raw, r.star.s, r.star.t, r.star.a, r.star.r].any((t) => t.toLowerCase().contains(q));
+
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
     // 날짜 순(오래된 기록 → 최근 기록)으로 정렬
     final sorted = [...state.records]..sort((a, b) => _dateKey(a.date).compareTo(_dateKey(b.date)));
+    final q = _search.text.trim().toLowerCase();
+    final shown = q.isEmpty ? sorted : sorted.where((r) => _matches(r, q)).toList();
     return Scaffold(
       appBar: AppBar(title: const Text('활동 기록')),
       bottomNavigationBar: BottomBar(
@@ -58,12 +78,22 @@ class RecordListScreen extends StatelessWidget {
           : ListView(
               padding: const EdgeInsets.all(20),
               children: [
-                for (var i = 0; i < sorted.length; i++)
-                  RecordCard(
-                    record: sorted[i],
-                    order: '${i + 1}/${sorted.length}',
-                    onDelete: () => state.removeRecord(sorted[i].id),
-                  ),
+                SearchField(
+                  controller: _search,
+                  hint: '제목이나 내용으로 기록 찾기',
+                  onChanged: (_) => setState(() {}),
+                ),
+                const SizedBox(height: 14),
+                if (shown.isEmpty)
+                  const EmptyState(icon: Icons.search_off, title: '찾는 기록이 없어요', desc: '다른 단어로 검색해 보세요.')
+                else
+                  for (var i = 0; i < shown.length; i++)
+                    RecordCard(
+                      record: shown[i],
+                      // 검색 중에는 순서 번호를 숨김
+                      order: q.isEmpty ? '${i + 1}/${shown.length}' : null,
+                      onDelete: () => state.removeRecord(shown[i].id),
+                    ),
               ],
             ),
     );
