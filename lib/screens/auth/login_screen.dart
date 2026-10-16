@@ -79,7 +79,7 @@ class _LoginScreenState extends State<LoginScreen> {
               obscure: !_showPw,
               suffix: IconButton(
                 tooltip: '비밀번호 보기',
-                icon: Icon(_showPw ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 18, color: AppColors.subtle),
+                icon: Icon(_showPw ? Icons.visibility_outlined : Icons.visibility_off_outlined, size: 18, color: AppColors.subtle),
                 onPressed: () => setState(() => _showPw = !_showPw),
               ),
             ),
