@@ -1,0 +1,26 @@
+# PR 을 올리거나 main 에 합쳐질 때 자동으로 코드 검사 + 테스트를 돌립니다.
+# PR 화면 아래 'Checks' 에 초록 체크가 떠야 합칠 수 있어요.
+name: Flutter CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  analyze-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter --version
+      - run: flutter pub get
+      - name: 코드 검사 (flutter analyze)
+        run: flutter analyze --no-fatal-infos
+      - name: 테스트 (flutter test)
+        run: flutter test
