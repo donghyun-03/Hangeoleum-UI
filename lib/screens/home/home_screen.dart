@@ -73,13 +73,9 @@ class HomeScreen extends StatelessWidget {
               Expanded(
                 child: InkWell(
                   onTap: () {
-                    Navigator.pushNamed(
-                      context,
-                      state.isInstitution
-                          ? Routes.profile
-                          : Routes.recordList,
-                    );
+                    Navigator.pushNamed(context, Routes.profile);
                   },
+
                   child: Row(
                     children: [
                       Avatar(
