@@ -1,7 +1,6 @@
 // 회원가입 (청년 / 활동기관)
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter/gestures.dart';
 
 import '../../models/models.dart';
 import '../../router/routes.dart';
@@ -65,7 +64,7 @@ class _SignupScreenState extends State<SignupScreen> {
     AppNav.resetTo(context, _role == UserRole.youth ? Routes.diagnosis : Routes.main);
   }
 
-// 폼 배치를 바꾸지 않고 입력칸 아래에 메뉴를 겹쳐 표시합니다.
+  // 폼 배치를 바꾸지 않고 입력칸 아래에 메뉴를 겹쳐 표시합니다.
   Widget _buildEducationField() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -136,6 +135,7 @@ class _SignupScreenState extends State<SignupScreen> {
                     curve: Curves.easeOutCubic,
                     reverseCurve: Curves.easeInCubic,
                   );
+                  // 배경과 글자를 포함한 메뉴 전체에 같은 애니메이션 적용.
                   return Stack(
                     children: [
                       Positioned(
@@ -144,7 +144,7 @@ class _SignupScreenState extends State<SignupScreen> {
                         width: field.size.width,
                         child: SizeTransition(
                           sizeFactor: curve,
-                          alignment: const Alignment(-1.0, -1.0),
+                          alignment: Alignment.center,
                           child: FadeTransition(opacity: animation, child: child),
                         ),
                       ),
@@ -180,43 +180,72 @@ class _SignupScreenState extends State<SignupScreen> {
     );
   }
 
-@override
+  // 세로 배치에서는 Expanded를 쓰지 않아 스크롤 높이 충돌을 피합니다.
+  Widget _pairChild({required bool narrow, required Widget child}) {
+    return narrow ? child : Expanded(child: child);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final youth = _role == UserRole.youth;
-    return Scaffold(
-      appBar: AppBar(title: const Text('회원가입')),
-      bottomNavigationBar: BottomBar(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SizedBox(
-              height: 50,
-              child: AppButton(label: '가입하기', onPressed: _submit),
-            ),
-            const SizedBox(height: 12),
-            Center(
-              child: Text.rich(
-                TextSpan(
-                  text: '이미 계정이 있나요? ',
-                  style: AppText.small.copyWith(fontSize: 12.5),
-                  children: [
-                    TextSpan(
-                      text: '로그인',
-                      style: AppText.bodyBold.copyWith(fontSize: 12.5, color: AppColors.green),
-                      recognizer: TapGestureRecognizer()
-                        ..onTap = () => Navigator.pushNamed(context, Routes.login),
-                    ),
-                  ],
+    return LayoutBuilder(
+      builder: (context, viewport) {
+        // 웹의 가로 폭 전체로 입력칸이 늘어나지 않도록 제한합니다.
+        const maxFormWidth = 480.0;
+        final horizontal = (viewport.maxWidth * 0.05).clamp(16.0, 24.0).toDouble();
+        return Scaffold(
+          appBar: AppBar(title: const Text('회원가입')),
+          bottomNavigationBar: BottomBar(
+            child: Center(
+              heightFactor: 1,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: maxFormWidth),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      AppButton(label: '가입하기', onPressed: _submit),
+                      const SizedBox(height: 4),
+                      Wrap(
+                        alignment: WrapAlignment.center,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Text('이미 계정이 있나요?', style: AppText.small.copyWith(fontSize: 12.5)),
+                          TextButton(
+                            onPressed: () => Navigator.pushNamed(context, Routes.login),
+                            child: Text('로그인', style: AppText.body.copyWith(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.green,
+                            )),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ],
-        ),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
+          ),
+          body: SafeArea(
+            bottom: false,
+            child: LayoutBuilder(
+              builder: (context, bodySize) {
+                final vertical = (bodySize.maxHeight * 0.025).clamp(12.0, 24.0).toDouble();
+                return SingleChildScrollView(
+                  keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                  padding: EdgeInsets.symmetric(horizontal: horizontal, vertical: vertical),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: maxFormWidth),
+                      child: LayoutBuilder(
+                        builder: (context, formSize) {
+                          final narrow = formSize.maxWidth < 340;
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
           Text('가입 정보를 입력해 주세요', style: AppText.h2),
           const SizedBox(height: 12),
           Segmented<UserRole>(
@@ -234,8 +263,11 @@ class _SignupScreenState extends State<SignupScreen> {
               Expanded(child: LabeledField(label: '나이', hint: '만 나이', controller: _f['age'], keyboardType: TextInputType.number)),
             ]),
             const SizedBox(height: 12),
-            Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-              Expanded(
+            Flex(
+              direction: narrow ? Axis.vertical : Axis.horizontal,
+              crossAxisAlignment: narrow ? CrossAxisAlignment.stretch : CrossAxisAlignment.end,
+              children: [
+              _pairChild(narrow: narrow,
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text('성별', style: AppText.small.copyWith(fontSize: 12)),
                   const SizedBox(height: 6),
@@ -246,8 +278,8 @@ class _SignupScreenState extends State<SignupScreen> {
                   ),
                 ]),
               ),
-              const SizedBox(width: 10),
-              Expanded(child: LabeledField(label: '연락처', hint: '010-0000-0000', controller: _f['phone'], keyboardType: TextInputType.phone)),
+              SizedBox(width: narrow ? 0 : 10, height: narrow ? 12 : 0),
+              _pairChild(narrow: narrow, child: LabeledField(label: '연락처', hint: '010-0000-0000', controller: _f['phone'], keyboardType: TextInputType.phone)),
             ]),
             const SizedBox(height: 12),
             Row(children: [
@@ -262,11 +294,37 @@ class _SignupScreenState extends State<SignupScreen> {
             const TodoBox('기관 인증 항목(사업자등록번호, 증빙 서류 등) 정해지면 추가'),
           ],
           const SizedBox(height: 4),
-          Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-            Expanded(child: LabeledField(label: '주소', hint: '주소 검색', controller: _f['address'])),
-            const SizedBox(width: 8),
-            AppButton(label: '검색', small: true, expand: false, variant: ButtonVariant.ghost, onPressed: () {}),
-          ]),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('주소', style: AppText.small.copyWith(fontSize: 12)),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _f['address'],
+                      decoration: const InputDecoration(hintText: '주소 검색'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      backgroundColor: AppColors.paper,
+                      foregroundColor: AppColors.ink,
+                      side: const BorderSide(color: AppColors.line),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppRadius.sm),
+                      ),
+                      minimumSize: const Size(64, 48),
+                    ),
+                    onPressed: () {},
+                    child: Text('검색', style: AppText.body.copyWith(fontSize: 14)),
+                  ),
+                ],
+              ),
+            ],
+          ),
           const SizedBox(height: 8),
           LabeledField(hint: '상세 주소', controller: _f['addressDetail']),
           const SizedBox(height: 16),
@@ -275,12 +333,22 @@ class _SignupScreenState extends State<SignupScreen> {
             child: Row(children: [
               Icon(_agree ? Icons.check_box : Icons.check_box_outline_blank, size: 20, color: _agree ? AppColors.green : AppColors.subtle),
               const SizedBox(width: 6),
-              Text('[필수] 개인정보 수집·이용 동의', style: AppText.body.copyWith(fontSize: 13)),
+              Expanded(child: Text('[필수] 개인정보 수집·이용 동의', style: AppText.body.copyWith(fontSize: 13))),
             ]),
           ),
           ErrorText(_error),
-        ],
-      ),
+                            ],
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+      },
     );
   }
 }
