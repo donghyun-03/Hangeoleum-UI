@@ -253,99 +253,148 @@ class _YouthHome extends StatelessWidget {
         otherActivities.where((activity) => !activity.done).length;
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        AppCard(
-          color: AppColors.soft,
-          onTap: () {
-            context.read<MainTabs>().go(
-                  MainTab.step,
-                  step: currentStep,
-                );
-          },
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('지금 나의 단계', style: AppText.caption),
-              Text(
-                'STEP $currentStep · ${info?.title ?? ''}',
-                style: AppText.h2.copyWith(fontSize: 17),
+  crossAxisAlignment: CrossAxisAlignment.stretch,
+  children: [
+    // 요약과 현재 활동을 하나의 카드에 표시합니다.
+    AppCard(
+      padding: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // 상단: 지금 나의 단계와 완료 현황.
+          Material(
+            color: AppColors.soft,
+            borderRadius: BorderRadius.vertical(
+              top: Radius.circular(AppRadius.md),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: () {
+                context.read<MainTabs>().go(
+                      MainTab.step,
+                      step: currentStep,
+                    );
+              },
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '지금 나의 단계',
+                      style: AppText.caption,
+                    ),
+                    Text(
+                      'STEP $currentStep · ${info?.title ?? ''}',
+                      style: AppText.h2.copyWith(fontSize: 17),
+                    ),
+                    if (info != null)
+                      Text(
+                        info.desc,
+                        style: AppText.small.copyWith(fontSize: 12),
+                      ),
+                    const SizedBox(height: 10),
+                    Text(
+                      currentStep == 1
+                          ? '활동 $doneCount/${currentActivities.length} 완료'
+                          : '활동 ${currentActivities.length}개',
+                      style: AppText.bodyBold.copyWith(
+                        fontSize: 13,
+                        color: AppColors.ink,
+                      ),
+                    ),
+                    if (currentStep == 1) ...[
+                      const SizedBox(height: 10),
+                      ProgressLine(
+                        value: doneCount,
+                        total: currentActivities.isEmpty
+                            ? 1
+                            : currentActivities.length,
+                      ),
+                    ],
+                  ],
+                ),
               ),
-              if (info != null)
-                Text(
-                  info.desc,
-                  style: AppText.small.copyWith(fontSize: 12),
-                ),
-              const SizedBox(height: 10),
-
-              // STEP 1만 실제 완료 상태가 존재합니다.
-              // STEP 2~4는 완료 여부를 임의로 만들지 않습니다.
-              Text(
-                currentStep == 1
-                    ? '활동 $doneCount/${currentActivities.length} 완료'
-                    : '활동 ${currentActivities.length}개',
-                style: AppText.bodyBold.copyWith(
-                  fontSize: 13,
-                  color: AppColors.ink,
-                ),
-              ),
-
-              if (currentStep == 1) ...[
-                const SizedBox(height: 10),
-                ProgressLine(
-                  value: doneCount,
-                  total: currentActivities.isEmpty
-                      ? 1
-                      : currentActivities.length,
-                ),
-              ],
-            ],
+            ),
           ),
-        ),
 
-        // 별도 '진행 중인 미션' 제목 없이 바로 표시.
-        const SizedBox(height: 8),
-        _ActivityList(
-          activities: currentActivities,
-          emptyMessage: '현재 STEP에 표시할 활동이 없어요.',
-        ),
+          const Divider(
+            height: 1,
+            thickness: 1,
+            color: AppColors.line,
+          ),
 
-        // 활동 수정 버튼은 잠시 숨깁니다.
-        /*
-        AppButton(
-          label: '활동 수정',
-          icon: Icons.edit_outlined,
-          variant: ButtonVariant.ghost,
-          onPressed: () {
-            Navigator.pushNamed(context, Routes.missionEdit);
-          },
-        ),
-        */
-
-        const SizedBox(height: 24),
-        Row(
-          children: [
-            Text(
-              '그 외 진행 중 $otherCount',
-              style: AppText.bodyBold,
+          // 하단: 현재 활동 또는 활동 없음 안내.
+          // _ActivityList를 쓰지 않아 카드가 중첩되지 않습니다.
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 4,
             ),
-            const SizedBox(width: 12),
-            const Expanded(
-              child: Divider(color: AppColors.line),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
+            child: currentActivities.isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    child: Text(
+                      '현재 STEP에 표시할 활동이 없어요.',
+                      style: AppText.small,
+                    ),
+                  )
+                : Column(
+                    children: [
+                      for (
+                        var index = 0;
+                        index < currentActivities.length;
+                        index++
+                      ) ...[
+                        if (index > 0) const Divider(),
+                        _ActivityRow(
+                          activity: currentActivities[index],
+                          showStep: false,
+                        ),
+                      ],
+                    ],
+                  ),
+          ),
+        ],
+      ),
+    ),
 
-        _ActivityList(
-          activities: otherActivities,
-          showStep: true,
-          emptyMessage: '다른 STEP에 표시할 활동이 없어요.',
-        ),
+    // 활동 수정 버튼은 잠시 숨깁니다.
+    /*
+    AppButton(
+      label: '활동 수정',
+      icon: Icons.edit_outlined,
+      variant: ButtonVariant.ghost,
+      onPressed: () {
+        Navigator.pushNamed(context, Routes.missionEdit);
+      },
+    ),
+    */
 
-        
+    const SizedBox(height: 24),
+    Row(
+      children: [
+        Text(
+          '그 외 진행 중 $otherCount',
+          style: AppText.bodyBold,
+        ),
+        const SizedBox(width: 12),
+        const Expanded(
+          child: Divider(color: AppColors.line),
+        ),
       ],
-    );
+    ),
+    const SizedBox(height: 12),
+
+    // 다른 STEP 활동 목록은 기존대로 유지합니다.
+    _ActivityList(
+      activities: otherActivities,
+      showStep: true,
+      emptyMessage: '다른 STEP에 표시할 활동이 없어요.',
+    ),
+  ],
+);
+
   }
 }
 
@@ -396,15 +445,13 @@ class _ActivityRow extends StatelessWidget {
   });
 
   final _HomeActivity activity;
+
+  // 기존 호출부와 호환되도록 유지합니다.
+  // STEP 배지는 현재 활동과 다른 STEP 활동 모두 표시합니다.
   final bool showStep;
 
   @override
   Widget build(BuildContext context) {
-    final detail = [
-      if (showStep) 'STEP ${activity.step}',
-      if (activity.detail.isNotEmpty) activity.detail,
-    ].join(' · ');
-
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12),
       child: Row(
@@ -430,8 +477,38 @@ class _ActivityRow extends StatelessWidget {
                         : AppColors.ink,
                   ),
                 ),
-                if (detail.isNotEmpty)
-                  Text(detail, style: AppText.caption),
+                const SizedBox(height: 4),
+
+                // 활동 시간·분류·마감일 등 설명 뒤에 STEP 표시.
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    if (activity.detail.isNotEmpty)
+                      Text(
+                        activity.detail,
+                        style: AppText.caption,
+                      ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 1,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.line,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        'STEP ${activity.step}',
+                        style: AppText.caption.copyWith(
+                          fontSize: 10,
+                          color: AppColors.muted,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -445,6 +522,7 @@ class _ActivityRow extends StatelessWidget {
     );
   }
 }
+
 
 class _InstitutionHome extends StatelessWidget {
   const _InstitutionHome();
