@@ -3,6 +3,23 @@
 
 enum UserRole { youth, institution } // 청년 / 활동기관
 
+/// 회원가입 학력 선택지. 사용자 모델에는 기존처럼 표시 문자열을 저장합니다.
+enum Education {
+  belowHigh('고졸 미만'),
+  highStudent('고교 재학'),
+  highExpected('고졸 예정'),
+  highGrad('고교 졸업'),
+  univStudent('대학 재학'),
+  univExpected('대졸 예정'),
+  univGrad('대학 졸업'),
+  graduate('석·박사'),
+  other('기타');
+
+  const Education(this.label);
+
+  final String label;
+}
+
 class AppUser {
   final String id;
   final UserRole role;

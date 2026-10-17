@@ -18,10 +18,11 @@ class SignupScreen extends StatefulWidget {
 class _SignupScreenState extends State<SignupScreen> {
   UserRole _role = UserRole.youth;
   String _gender = 'female';
+  Education? _education;
   bool _agree = false;
   String? _error;
   final _f = {
-    for (final k in ['email', 'name', 'age', 'phone', 'major', 'education', 'address', 'addressDetail'])
+    for (final k in ['email', 'name', 'age', 'phone', 'major', 'address', 'addressDetail'])
       k: TextEditingController(),
   };
 
@@ -56,12 +57,129 @@ class _SignupScreenState extends State<SignupScreen> {
           gender: _gender,
           phone: _f['phone']!.text,
           major: _f['major']!.text,
-          education: _f['education']!.text,
+          education: _role == UserRole.youth ? (_education?.label ?? '') : '',
           address: _f['address']!.text,
           addressDetail: _f['addressDetail']!.text,
         ));
     AppNav.resetTo(context, _role == UserRole.youth ? Routes.diagnosis : Routes.main);
   }
+
+    // 폼 배치를 바꾸지 않고 입력칸 아래에 메뉴를 겹쳐 표시합니다.
+  Widget _buildEducationField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('학력', style: AppText.small.copyWith(fontSize: 12)),
+        const SizedBox(height: 6),
+        Builder(builder: (fieldContext) {
+          return InkWell(
+            onTap: () async {
+              final field = fieldContext.findRenderObject() as RenderBox;
+              final overlay = Overlay.of(fieldContext)
+                  .context.findRenderObject() as RenderBox;
+              final origin = field.localToGlobal(Offset.zero, ancestor: overlay);
+              final media = MediaQuery.of(fieldContext);
+              final top = origin.dy + field.size.height + 4;
+              final bottom = overlay.size.height -
+                  media.viewInsets.bottom - media.padding.bottom - 8;
+              final height = (bottom - top).clamp(0.0, 192.0).toDouble();
+              if (height < 48) return;
+              final selected = await showGeneralDialog<Education>(
+                context: context,
+                useRootNavigator: false,
+                barrierDismissible: true,
+                barrierLabel: MaterialLocalizations.of(context)
+                    .modalBarrierDismissLabel,
+                barrierColor: AppColors.ink.withValues(alpha: 0),
+                transitionDuration: const Duration(milliseconds: 300),
+                pageBuilder: (menuContext, animation, secondaryAnimation) {
+                  return Material(
+                    color: AppColors.paper,
+                    surfaceTintColor: AppColors.paper,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppRadius.sm),
+                      side: const BorderSide(color: AppColors.line),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: SizedBox(
+                      height: height,
+                      child: ListView.builder(
+                        primary: false,
+                        padding: EdgeInsets.zero,
+                        itemExtent: 48,
+                        itemCount: Education.values.length,
+                        itemBuilder: (context, index) {
+                          final option = Education.values[index];
+                          return InkWell(
+                            onTap: () => Navigator.of(menuContext).pop(option),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              child: Align(
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  option.label,
+                                  style: AppText.body.copyWith(fontSize: 14),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  );
+                },
+                transitionBuilder: (context, animation, secondaryAnimation, child) {
+                  final curve = CurvedAnimation(
+                    parent: animation,
+                    curve: Curves.easeOutCubic,
+                    reverseCurve: Curves.easeInCubic,
+                  );
+                  // 배경과 글자를 포함한 메뉴 전체에 같은 애니메이션 적용.
+                  return Stack(
+                    children: [
+                      Positioned(
+                        left: origin.dx,
+                        top: top,
+                        width: field.size.width,
+                        child: SizeTransition(
+                          sizeFactor: curve,
+                          alignment: const Alignment(-1.0, -1.0),
+                          child: FadeTransition(opacity: animation, child: child),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              );
+              if (!mounted || selected == null) return;
+              setState(() => _education = selected);
+            },
+            child: InputDecorator(
+              isEmpty: _education == null,
+              decoration: const InputDecoration(),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _education?.label ?? '선택',
+                      style: _education == null
+                          ? AppText.body.copyWith(fontSize: 14).merge(
+                              Theme.of(context).inputDecorationTheme.hintStyle,
+                            )
+                          : AppText.body.copyWith(fontSize: 14),
+                    ),
+                  ),
+                  const Icon(Icons.expand_more, color: AppColors.muted),
+                ],
+              ),
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -108,9 +226,8 @@ class _SignupScreenState extends State<SignupScreen> {
             Row(children: [
               Expanded(child: LabeledField(label: '학부', hint: '예: 경영학부', controller: _f['major'])),
               const SizedBox(width: 10),
-              Expanded(child: LabeledField(label: '학력', hint: '선택', controller: _f['education'])),
+              Expanded(child: _buildEducationField()),
             ]),
-            const TodoBox('학력은 선택 목록(고졸/대학 재학/대학 졸업…)으로 교체'),
           ] else ...[
             LabeledField(label: '기관명', hint: '예: 서울청년센터', controller: _f['name']),
             const SizedBox(height: 12),
