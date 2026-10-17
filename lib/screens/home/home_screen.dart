@@ -107,11 +107,14 @@ class HomeScreen extends StatelessWidget {
               if (!state.isInstitution) ...[
                 const SizedBox(width: 12),
                 AppButton(
-                  label: '기록하기',
+                  label: '활동 기록',
                   small: true,
                   expand: false,
                   variant: ButtonVariant.outline,
-                  onPressed: () => AppNav.toRecordWrite(context),
+                  onPressed: () => Navigator.pushNamed(
+                    context,
+                    Routes.recordList,
+                  ),
                 ),
               ],
             ],
@@ -193,7 +196,7 @@ class _YouthHome extends StatelessWidget {
             '주 ${post.perWeek}회',
             post.mode,
           ].join(' · '),
-          statusLabel: '참여 승인',
+          statusLabel: '진행 중',
         ),
       );
     }
@@ -220,7 +223,7 @@ class _YouthHome extends StatelessWidget {
             opportunity.org,
             if (opportunity.region.isNotEmpty) opportunity.region,
           ].join(' · '),
-          statusLabel: '지원 완료',
+          statusLabel: '진행 중',
         ),
       );
     }
