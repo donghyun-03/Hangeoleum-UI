@@ -218,7 +218,7 @@ class _SignupScreenState extends State<SignupScreen> {
                             child: Text('로그인', style: AppText.body.copyWith(
                               fontSize: 12.5,
                               fontWeight: FontWeight.w700,
-                              color: AppColors.green,
+                              color: AppColors.black,
                             )),
                           ),
                         ],
@@ -246,7 +246,7 @@ class _SignupScreenState extends State<SignupScreen> {
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-          Text('가입 정보를 입력해 주세요', style: AppText.h2),
+          Text('가입 정보를 입력해 주세요', style: AppText.h1),
           const SizedBox(height: 12),
           Segmented<UserRole>(
             value: _role,
@@ -331,9 +331,27 @@ class _SignupScreenState extends State<SignupScreen> {
           InkWell(
             onTap: () => setState(() => _agree = !_agree),
             child: Row(children: [
-              Icon(_agree ? Icons.check_box : Icons.check_box_outline_blank, size: 20, color: _agree ? AppColors.green : AppColors.subtle),
+              Container(
+  width: 17,
+  height: 17,
+  decoration: BoxDecoration(
+    color: _agree ? Colors.black : Colors.transparent,
+    border: Border.all(
+      color: _agree ? Colors.black : AppColors.subtle,
+      width: 1.5,
+    ),
+    borderRadius: BorderRadius.circular(6),
+  ),
+  child: _agree
+      ? const Icon(
+          Icons.check,
+          size: 15,
+          color: Colors.white,
+        )
+      : null,
+),
               const SizedBox(width: 6),
-              Expanded(child: Text('[필수] 개인정보 수집·이용 동의', style: AppText.body.copyWith(fontSize: 13))),
+              Expanded(child: Text('[필수] 개인정보 수집·이용 동의', style: AppText.body.copyWith(fontSize: 15, fontWeight: FontWeight.w700,),)),
             ]),
           ),
           ErrorText(_error),
