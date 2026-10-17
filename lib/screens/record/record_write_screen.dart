@@ -1,5 +1,6 @@
 // 기록 작성 (LLM 채팅)
 // [추가 기능 1] 파일 첨부 · 깃허브 링크 첨부
+// 기록 수정 → 'AI로 다시 작성하기' 로 오면 기존 제목·STAR 가 미리 채워지고, 저장하면 같은 기록이 바뀜
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -14,19 +15,25 @@ const _maxLength = 500;
 final _githubRe = RegExp(r'^https://github\.com/[\w.-]+(/[\w.-]+)?/?$');
 
 class RecordWriteScreen extends StatefulWidget {
-  const RecordWriteScreen({super.key, this.missionId});
+  const RecordWriteScreen({super.key, this.missionId, this.editing, this.initialText});
 
   /// 미션에서 바로 기록할 때 넘김 (없으면 자유 기록)
   final String? missionId;
+
+  /// 기록 수정에서 다시 작성할 때 넘김 → 같은 기록(id · 날짜 · 첨부)으로 저장
+  final ActivityRecord? editing;
+
+  /// 입력칸에 미리 채울 내용 (기존 제목 · STAR)
+  final String? initialText;
 
   @override
   State<RecordWriteScreen> createState() => _RecordWriteScreenState();
 }
 
 class _RecordWriteScreenState extends State<RecordWriteScreen> {
-  final _text = TextEditingController();
+  late final _text = TextEditingController(text: widget.initialText);
   final _github = TextEditingController();
-  final List<Attachment> _attachments = [];
+  late final List<Attachment> _attachments = [...?widget.editing?.attachments];
   String? _error;
 
   @override
@@ -88,18 +95,24 @@ class _RecordWriteScreenState extends State<RecordWriteScreen> {
       setState(() => _error = '오늘 한 일을 조금만 더 적어 주세요.');
       return;
     }
+    if (text.length > _maxLength) {
+      setState(() => _error = '$_maxLength자 이내로 줄여 주세요.');
+      return;
+    }
     final state = context.read<AppState>();
     Mission? mission;
     for (final m in state.missions) {
       if (m.id == widget.missionId) mission = m;
     }
     final now = DateTime.now();
+    final editing = widget.editing;
     // TODO(AI): text 를 LLM 에 보내 STAR 로 정리받기. 지금은 원문을 그대로 넣은 임시 결과입니다.
     final draft = ActivityRecord(
-      id: 'rec-${now.microsecondsSinceEpoch}',
-      step: state.user.currentStep,
+      id: editing?.id ?? 'rec-${now.microsecondsSinceEpoch}',
+      step: editing?.step ?? state.user.currentStep,
       title: mission?.title ?? (text.split('\n').first.length > 24 ? text.split('\n').first.substring(0, 24) : text.split('\n').first),
-      date: '${now.month}/${now.day}',
+      // YYYY-MM-DD (예: 2026-10-16)
+      date: editing?.date ?? '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}',
       raw: text,
       star: Star(s: '(AI 정리 예정) 상황', t: '(AI 정리 예정) 목표', a: text, r: '(AI 정리 예정) 결과'),
       attachments: List.of(_attachments),
@@ -120,12 +133,11 @@ class _RecordWriteScreenState extends State<RecordWriteScreen> {
           TextField(
             controller: _text,
             maxLines: 8,
-            maxLength: _maxLength,
+            // 글자 수 제한은 _summarize 에서 검사 (미리 채운 글이 500자를 넘어도 잘리지 않게)
             style: AppText.body,
             decoration: const InputDecoration(
               hintText: '예) 청년센터 엑셀 워크숍 3번 들음. 배운 거로 내 가계부 자동 정리 시트 만들어 봄.',
               fillColor: AppColors.paper,
-              counterText: '',
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.all(Radius.circular(AppRadius.md)),
                 borderSide: BorderSide(color: AppColors.green),
@@ -135,7 +147,10 @@ class _RecordWriteScreenState extends State<RecordWriteScreen> {
           const SizedBox(height: 6),
           Row(children: [
             Expanded(child: Text('문장이 어색해도 괜찮아요. 그냥 적기만 하면 돼요.', style: AppText.caption.copyWith(fontSize: 11))),
-            Text('${_text.text.length}/$_maxLength', style: AppText.caption.copyWith(fontSize: 11)),
+            Text(
+              '${_text.text.length}/$_maxLength',
+              style: AppText.caption.copyWith(fontSize: 11, color: _text.text.length > _maxLength ? AppColors.red : null),
+            ),
           ]),
 
           // ── [추가 기능 1] 첨부

@@ -43,7 +43,7 @@ const mockRecords = <ActivityRecord>[
     id: 'r1',
     step: 1,
     title: '청년센터 독서 동아리 참여',
-    date: '2/10',
+    date: '2026-02-10',
     raw: '',
     star: Star(
       s: '쉬는 동안 사람들과 만날 기회가 거의 없었음',
@@ -56,7 +56,7 @@ const mockRecords = <ActivityRecord>[
     id: 'r2',
     step: 1,
     title: '청년센터 엑셀 워크숍 듣기',
-    date: '2/16',
+    date: '2026-02-16',
     raw: '',
     star: Star(
       s: '공백기 중 실무 데이터 활용 역량이 부족하다고 느낌',
