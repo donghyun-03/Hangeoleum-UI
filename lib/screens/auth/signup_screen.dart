@@ -1,6 +1,7 @@
 // 회원가입 (청년 / 활동기관)
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter/gestures.dart';
 
 import '../../models/models.dart';
 import '../../router/routes.dart';
@@ -64,13 +65,13 @@ class _SignupScreenState extends State<SignupScreen> {
     AppNav.resetTo(context, _role == UserRole.youth ? Routes.diagnosis : Routes.main);
   }
 
-    // 폼 배치를 바꾸지 않고 입력칸 아래에 메뉴를 겹쳐 표시합니다.
+// 폼 배치를 바꾸지 않고 입력칸 아래에 메뉴를 겹쳐 표시합니다.
   Widget _buildEducationField() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('학력', style: AppText.small.copyWith(fontSize: 12)),
-        const SizedBox(height: 6),
+        const SizedBox(height: 4),
         Builder(builder: (fieldContext) {
           return InkWell(
             onTap: () async {
@@ -135,7 +136,6 @@ class _SignupScreenState extends State<SignupScreen> {
                     curve: Curves.easeOutCubic,
                     reverseCurve: Curves.easeInCubic,
                   );
-                  // 배경과 글자를 포함한 메뉴 전체에 같은 애니메이션 적용.
                   return Stack(
                     children: [
                       Positioned(
@@ -180,13 +180,40 @@ class _SignupScreenState extends State<SignupScreen> {
     );
   }
 
-
-  @override
+@override
   Widget build(BuildContext context) {
     final youth = _role == UserRole.youth;
     return Scaffold(
       appBar: AppBar(title: const Text('회원가입')),
-      bottomNavigationBar: BottomBar(child: AppButton(label: '가입하기', onPressed: _submit)),
+      bottomNavigationBar: BottomBar(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              height: 50,
+              child: AppButton(label: '가입하기', onPressed: _submit),
+            ),
+            const SizedBox(height: 12),
+            Center(
+              child: Text.rich(
+                TextSpan(
+                  text: '이미 계정이 있나요? ',
+                  style: AppText.small.copyWith(fontSize: 12.5),
+                  children: [
+                    TextSpan(
+                      text: '로그인',
+                      style: AppText.bodyBold.copyWith(fontSize: 12.5, color: AppColors.green),
+                      recognizer: TapGestureRecognizer()
+                        ..onTap = () => Navigator.pushNamed(context, Routes.login),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
