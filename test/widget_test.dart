@@ -13,8 +13,7 @@ void main() {
     expect(find.text('한걸음'), findsWidgets);
     await tester.tap(find.text('청년 · 진단 완료 → 홈'));
     await tester.pumpAndSettle();
-    expect(find.text('진행 중인 미션'), findsOneWidget);
-    expect(find.text('미션 수정'), findsOneWidget);
+    expect(find.text('지금 나의 단계'), findsOneWidget);
 
     await tester.tap(find.text('STEP').last);
     await tester.pumpAndSettle();
