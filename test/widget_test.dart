@@ -31,7 +31,7 @@ void main() {
 
     await tester.tap(find.text('스크랩').last);
     await tester.pumpAndSettle();
-    expect(find.text('공고 스크랩'), findsOneWidget);
+    expect(find.text('활동 스크랩'), findsOneWidget);
     await tester.tap(find.text('지원했어요').last);
     await tester.pumpAndSettle();
   });
@@ -93,6 +93,22 @@ void _registerStepTests() {
     expect(find.text('내가 쓴 글 1'), findsOneWidget);
     expect(find.text('파이썬 기초 스터디 같이 해요'), findsOneWidget);
     await _flush(tester);
+  });
+
+  testWidgets('팀원 프로필 → 완료한 미션 · 활동 기록 자세히 보기', (tester) async {
+    await _enterStep(tester, 2);
+    await tester.tap(find.byTooltip('서연 프로필'));
+    await tester.pumpAndSettle();
+    expect(find.text('최근 활동 기록'), findsOneWidget);
+
+    await tester.tap(find.text('완료한 미션'));
+    await tester.pumpAndSettle();
+    expect(find.text('서연님의 활동'), findsOneWidget);
+    expect(find.text('완료한 미션 18'), findsOneWidget);
+
+    await tester.tap(find.text('활동 기록 9'));
+    await tester.pumpAndSettle();
+    expect(find.text('카드를 누르면 자세한 내용을 볼 수 있어요.'), findsOneWidget);
   });
 
   testWidgets('STEP 4: 지원현황 버튼 → 카드 목록', (tester) async {

@@ -108,6 +108,16 @@ class Mission {
   }
 }
 
+/// 완료한 미션 기록 (팀원 프로필 → 활동 자세히 보기)
+class DoneMission {
+  final int step;
+  final String title;
+  final String category;
+  final int minutes;
+  final DateTime doneAt;
+  const DoneMission({required this.step, required this.title, required this.category, required this.minutes, required this.doneAt});
+}
+
 // ── 활동 기록 (STAR)
 class Star {
   final String s; // 상황
@@ -317,7 +327,7 @@ enum ApplyStage {
   bool get inProgress => this != passed && this != failed;
 }
 
-/// 공고 스크랩 + 지원 여부 (취업 지원 현황)
+/// 활동 스크랩 + 지원 여부 (취업 지원 현황)
 class Scrap {
   final String opportunityId;
   final bool applied;

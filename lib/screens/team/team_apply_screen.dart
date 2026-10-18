@@ -196,7 +196,7 @@ class _Meta extends StatelessWidget {
       ]);
 }
 
-/// 팀장 + 팀원 + 남은 자리. 누르면 팀원 프로필
+/// 팀장 + 팀원. 누르면 팀원 프로필
 class _Members extends StatelessWidget {
   const _Members({required this.post});
   final TeamPost post;
@@ -205,7 +205,6 @@ class _Members extends StatelessWidget {
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
     final people = [post.leaderId, ...post.memberIds].map(state.memberById).whereType<TeamMember>().toList();
-    final empty = (post.max - post.current).clamp(0, 6);
 
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       SectionTitle('팀원 ${post.current}/${post.max}'),
@@ -221,7 +220,6 @@ class _Members extends StatelessWidget {
                 leader: m.id == post.leaderId,
                 onTap: () => AppNav.toMemberProfile(context, m.id),
               ),
-            for (var i = 0; i < empty; i++) const _EmptySeat(),
           ],
         ),
       ),
@@ -252,30 +250,6 @@ class _MemberTile extends StatelessWidget {
             Text(sub, style: AppText.caption.copyWith(fontSize: 10.5, color: leader ? AppColors.green : AppColors.subtle)),
           ]),
         ),
-      ),
-    );
-  }
-}
-
-class _EmptySeat extends StatelessWidget {
-  const _EmptySeat();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 12),
-      child: SizedBox(
-        width: 64,
-        child: Column(children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: AppColors.dim)),
-            child: const Icon(Icons.person_add_alt_outlined, size: 20, color: AppColors.subtle),
-          ),
-          const SizedBox(height: 4),
-          Text('빈 자리', style: AppText.caption.copyWith(fontSize: 11)),
-        ]),
       ),
     );
   }

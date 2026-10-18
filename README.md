@@ -84,7 +84,7 @@ test/widget_test.dart           기본 흐름 테스트
 | --- | --- | --- | --- |
 | 1 | 기록 작성 시 파일·깃허브 링크 첨부 | `screens/record/record_write_screen.dart` | 골조 완료, 업로드 API 필요 |
 | 2 | 진행 중 미션 마감 시 변경 (미션 수정 버튼) | `home/home_screen.dart` → `mission/mission_edit_screen.dart` | 골조 완료 |
-| 3 | 공고 스크랩 + 지원했는지/안 했는지 | `widgets/opportunity_card.dart`(북마크) → `scrap/scrap_screen.dart` | 골조 완료 |
+| 3 | 활동 스크랩 + 지원했는지/안 했는지 | `widgets/opportunity_card.dart`(북마크) → `scrap/scrap_screen.dart` | 골조 완료 |
 | 4 | STEP 2 검색창 | `step/step2_connect.dart` | 골조 완료 |
 | 5 | STEP 4 필터 (지역·고용형태·경력·직무) | `step/step4_job.dart` | 골조 완료 |
 | 6 | 팀원 프로필 · 팀 신청 · 프로그램 등록(기관) | `team/`, `institution/` | 디자인 없음 → 임시 레이아웃 |

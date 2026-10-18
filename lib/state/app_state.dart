@@ -175,6 +175,25 @@ class AppState extends ChangeNotifier {
     return findMember(id);
   }
 
+  /// 팀원의 완료한 미션 (내 id 면 내 데이터)
+  List<DoneMission> doneMissionsOf(String memberId) {
+    if (memberId == _user.id) {
+      return [
+        for (final m in _missions.where((m) => m.status == MissionStatus.done))
+          DoneMission(step: 1, title: m.title, category: m.category, minutes: m.minutes, doneAt: m.due ?? DateTime.now()),
+      ];
+    }
+    final m = findMember(memberId);
+    return m == null ? const [] : mockDoneMissionsOf(m);
+  }
+
+  /// 팀원의 활동 기록 (내 id 면 내 기록)
+  List<ActivityRecord> recordsOf(String memberId) {
+    if (memberId == _user.id) return records;
+    final m = findMember(memberId);
+    return m == null ? const [] : mockRecordsOf(m);
+  }
+
   /// 내가 쓴 모집 글인지
   bool isMyPost(TeamPost p) => p.leaderId == _user.id;
 
