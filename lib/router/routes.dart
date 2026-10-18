@@ -102,8 +102,12 @@ class AppNav {
       Navigator.pushNamed(context, Routes.memberProfile, arguments: memberId);
 
   /// 신청을 완료하면 true
-  static Future<bool?> toTeamApply(BuildContext context, String postId) =>
-      Navigator.pushNamed<bool>(context, Routes.teamApply, arguments: postId);
+  static Future<bool> toTeamApply(BuildContext context, String postId) async =>
+      await Navigator.pushNamed(context, Routes.teamApply, arguments: postId) == true;
+
+  /// 글을 올리면 true
+  static Future<bool> toTeamPostWrite(BuildContext context) async =>
+      await Navigator.pushNamed(context, Routes.teamPostWrite) == true;
 
   static Future<void> toComingSoon(BuildContext context, String title) =>
       Navigator.pushNamed(context, Routes.comingSoon, arguments: title);

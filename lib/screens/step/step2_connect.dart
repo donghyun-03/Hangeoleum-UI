@@ -68,12 +68,12 @@ class _Step2ConnectState extends State<Step2Connect> {
 
   Future<void> _openPost(TeamPost p) async {
     final applied = await AppNav.toTeamApply(context, p.id);
-    if (applied == true && mounted) setState(() => _tab = _Tab.applied);
+    if (applied && mounted) setState(() => _tab = _Tab.applied);
   }
 
   Future<void> _write() async {
-    final posted = await Navigator.pushNamed<bool>(context, Routes.teamPostWrite);
-    if (posted == true && mounted) setState(() => _tab = _Tab.mine);
+    final posted = await AppNav.toTeamPostWrite(context);
+    if (posted && mounted) setState(() => _tab = _Tab.mine);
   }
 
   @override
