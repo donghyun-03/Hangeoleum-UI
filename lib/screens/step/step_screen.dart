@@ -117,7 +117,7 @@ class _ApplyStatusButton extends StatelessWidget {
         shape: const StadiumBorder(),
         padding: const EdgeInsets.symmetric(horizontal: 12),
         minimumSize: const Size(0, 34),
-        textStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
+        textStyle: const TextStyle(fontFamily: 'Pretendard', fontSize: 12.5, fontWeight: FontWeight.w700),
       ),
       icon: const Icon(Icons.assignment_turned_in_outlined, size: 16),
       label: Text(count > 0 ? '지원현황 $count' : '지원현황'),

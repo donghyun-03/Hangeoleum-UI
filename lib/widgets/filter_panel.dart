@@ -119,15 +119,41 @@ class ActiveFilterChips extends StatelessWidget {
       child: ChipWrap(children: [
         for (final g in groups)
           for (final v in selection.of(g.key))
-            SelectChip(
-              label: '$v ✕',
-              selected: true,
-              onTap: () {
+            RemovableChip(
+              label: v,
+              onRemove: () {
                 selection.toggle(g.key, v);
                 onChanged();
               },
             ),
       ]),
+    );
+  }
+}
+
+/// 선택된 값 + 닫기 아이콘 칩 (누르면 해제)
+class RemovableChip extends StatelessWidget {
+  const RemovableChip({super.key, required this.label, required this.onRemove});
+  final String label;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.greenLight,
+      shape: const StadiumBorder(side: BorderSide(color: AppColors.green)),
+      child: InkWell(
+        customBorder: const StadiumBorder(),
+        onTap: onRemove,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 7, 8, 7),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Text(label, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500, color: AppColors.greenDark)),
+            const SizedBox(width: 4),
+            const Icon(Icons.close, size: 14, color: AppColors.greenDark),
+          ]),
+        ),
+      ),
     );
   }
 }
