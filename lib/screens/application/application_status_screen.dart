@@ -82,7 +82,7 @@ class _ApplicationStatusScreenState extends State<ApplicationStatusScreen> {
                 title: '아직 지원한 공고가 없어요',
                 desc: "스크랩 탭에서 '지원했어요'를 누르면\n여기에서 진행 상황을 관리할 수 있어요.",
               ),
-              AppButton(label: '스크랩한 공고 보러 가기', variant: ButtonVariant.outline, onPressed: _goScrapTab),
+              AppButton(label: '스크랩한 활동 보러 가기', variant: ButtonVariant.outline, onPressed: _goScrapTab),
             ])
           else if (shown.isEmpty)
             const EmptyState(icon: Icons.filter_alt_off_outlined, title: '해당하는 지원 내역이 없어요'),

@@ -41,7 +41,7 @@ class OpportunityCard extends StatelessWidget {
             tooltip: on ? '스크랩 취소' : '스크랩',
             onPressed: () {
               state.toggleScrap(o.id);
-              showToast(context, on ? '스크랩을 취소했어요' : '스크랩했어요. 스크랩 탭에서 지원 현황을 관리하세요');
+              showToast(context, on ? '스크랩을 취소했어요' : '스크랩했어요. 스크랩 탭에서 모아 볼 수 있어요');
             },
             icon: Icon(on ? Icons.bookmark : Icons.bookmark_border, color: on ? AppColors.green : AppColors.dim),
           ),
