@@ -102,7 +102,7 @@ class _AllScreenState extends State<AllScreen> {
         : mockOpportunities.where((o) => o.title.contains(q)).toList();
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.paper,
       appBar: AppBar(
         title: const Text('전체'),
         centerTitle: false,
@@ -129,7 +129,7 @@ class _AllScreenState extends State<AllScreen> {
                   ),
                   InkWell(
                     borderRadius: BorderRadius.circular(8),
-                    hoverColor: Colors.grey.shade200,
+                    hoverColor: AppColors.soft,
                     onTap: () => _goTab(MainTab.step, step: 3),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
@@ -156,11 +156,11 @@ class _AllScreenState extends State<AllScreen> {
                   return SizedBox(
                     width: 180,
                     child: Material(
-                      color: Colors.grey.shade100,
+                      color: AppColors.soft,
                       borderRadius: BorderRadius.circular(20),
                       child: InkWell(
                         borderRadius: BorderRadius.circular(20),
-                        onTap: () => _goTab(MainTab.step, step: o.step),
+                        onTap: () => AppNav.toComingSoon(context, o.title),
                         child: Padding(
                           padding: const EdgeInsets.all(12),
                           child: Column(
@@ -172,7 +172,7 @@ class _AllScreenState extends State<AllScreen> {
                                   vertical: 4,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: Colors.white,
+                                  color: AppColors.paper,
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Text(
@@ -206,10 +206,10 @@ class _AllScreenState extends State<AllScreen> {
             ),
           ],
           if (results.isNotEmpty) ...[
-            SectionTitle('공고', aside: '${results.length}건'),
+            SectionTitle('활동 · 채용', aside: '${results.length}건'),
             for (final o in results)
               AppCard(
-                onTap: () => _goTab(MainTab.step, step: o.step),
+                onTap: () => AppNav.toComingSoon(context, o.title),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -227,7 +227,7 @@ class _AllScreenState extends State<AllScreen> {
               padding: const EdgeInsets.symmetric(vertical: 60),
               child: Column(
                 children: [
-                  Icon(Icons.search, size: 48, color: Colors.grey.shade400),
+                  Icon(Icons.search, size: 48, color: AppColors.dim),
                   const SizedBox(height: 16),
                   Text(
                     '검색 결과가 없어요',
@@ -258,7 +258,7 @@ class _AllScreenState extends State<AllScreen> {
                       width: 44,
                       height: 44,
                       decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
+                        color: AppColors.soft,
                         borderRadius: BorderRadius.circular(14),
                       ),
                       child: Icon(shownServices[i].$1, color: AppColors.ink),
