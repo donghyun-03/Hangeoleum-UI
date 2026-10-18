@@ -1,4 +1,4 @@
-// [추가 기능 3] 공고 스크랩 · 취업 지원 현황 — 하단 탭
+// [추가 기능 3] 활동 스크랩 · 지원 여부 — 하단 탭 (STEP 3 도전 + STEP 4 취업 공고)
 // STEP 3·4 공고 카드의 북마크로 스크랩 → 여기서 지원했는지 / 안 했는지 관리
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../data/mock_data.dart';
 import '../../models/models.dart';
 import '../../router/main_tabs.dart';
+import '../../router/routes.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
@@ -38,7 +39,7 @@ class _ScrapScreenState extends State<ScrapScreen> {
         });
 
     return Scaffold(
-      appBar: AppBar(title: const Text('공고 스크랩'), centerTitle: false, titleSpacing: 20),
+      appBar: AppBar(title: const Text('활동 스크랩'), centerTitle: false, titleSpacing: 20),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
@@ -49,20 +50,27 @@ class _ScrapScreenState extends State<ScrapScreen> {
               (applied, '지원 완료'),
             ]),
           ),
-          const SizedBox(height: 4),
+          // 지원한 공고의 진행 단계(서류·면접·결과)는 취업 지원현황에서 관리
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: () => Navigator.pushNamed(context, Routes.applicationStatus),
+              child: Text('취업 지원현황 보기 ›', style: AppText.caption.copyWith(fontSize: 12, color: AppColors.green)),
+            ),
+          ),
           ChipWrap(children: [
             for (final (f, label) in [(_Filter.all, '전체'), (_Filter.todo, '지원 전'), (_Filter.applied, '지원 완료')])
               SelectChip(label: label, selected: _filter == f, onTap: () => setState(() => _filter = f)),
           ]),
           const SizedBox(height: 14),
           if (shown.isEmpty)
-            const EmptyState(icon: Icons.bookmark_border, title: '스크랩한 공고가 없어요', desc: 'STEP 3·4 공고의 북마크를 눌러 스크랩해 보세요.'),
+            const EmptyState(icon: Icons.bookmark_border, title: '스크랩한 활동이 없어요', desc: 'STEP 3·4 활동의 북마크를 눌러 스크랩해 보세요.'),
           for (final (s, o) in shown) _ScrapCard(scrap: s, o: o),
           if (items.isNotEmpty)
             Center(
               child: TextButton(
                 onPressed: () => context.read<MainTabs>().go(MainTab.step, step: 4),
-                child: Text('공고 더 보러 가기 ›', style: AppText.caption.copyWith(fontSize: 12)),
+                child: Text('활동 더 보러 가기 ›', style: AppText.caption.copyWith(fontSize: 12)),
               ),
             ),
         ],

@@ -64,8 +64,8 @@ class _AllScreenState extends State<AllScreen> {
       ),
       (
         Icons.bookmark_border,
-        '공고 스크랩',
-        '스크랩한 공고 · 지원 현황',
+        '활동 스크랩',
+        '스크랩한 활동 · 지원 현황',
         () => _goTab(MainTab.scrap),
       ),
       (

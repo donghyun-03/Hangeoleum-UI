@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 class AppColors {
   AppColors._();
 
-  static const bg = Color(0xFFF6F7F6); // 화면 배경
+  static const bg = Color(0xFFFFFFFF); // 화면 배경 (흰색)
   static const paper = Color(0xFFFFFFFF); // 카드·헤더·탭바
   static const ink = Color(0xFF16181A); // 본문·제목
   static const muted = Color(0xFF5C6166);

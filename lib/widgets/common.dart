@@ -171,15 +171,30 @@ class ChipWrap extends StatelessWidget {
 
 /// 검색창 (STEP2, STEP3, 전체 탭). onFilter 를 넘기면 오른쪽에 필터 아이콘이 생깁니다.
 class SearchField extends StatelessWidget {
-  const SearchField({super.key, required this.controller, this.hint = '검색', this.onChanged, this.onFilter});
+  const SearchField({
+    super.key,
+    required this.controller,
+    this.hint = '검색',
+    this.onChanged,
+    this.onFilter,
+    this.filterCount = 0,
+    this.filterOpen = false,
+  });
 
   final TextEditingController controller;
   final String hint;
   final ValueChanged<String>? onChanged;
   final VoidCallback? onFilter;
 
+  /// 선택된 필터 개수 (0 보다 크면 필터 아이콘에 숫자 표시)
+  final int filterCount;
+
+  /// 필터 패널이 열려 있는지 (아이콘 색 변경)
+  final bool filterOpen;
+
   @override
   Widget build(BuildContext context) {
+    final active = filterOpen || filterCount > 0;
     return Row(
       children: [
         Expanded(
@@ -196,7 +211,16 @@ class SearchField extends StatelessWidget {
           ),
         ),
         if (onFilter != null)
-          IconButton(onPressed: onFilter, tooltip: '필터', icon: const Icon(Icons.tune, color: AppColors.ink)),
+          IconButton(
+            onPressed: onFilter,
+            tooltip: '필터',
+            icon: Badge(
+              isLabelVisible: filterCount > 0,
+              label: Text('$filterCount'),
+              backgroundColor: AppColors.green,
+              child: Icon(Icons.tune, color: active ? AppColors.green : AppColors.ink),
+            ),
+          ),
       ],
     );
   }

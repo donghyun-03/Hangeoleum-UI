@@ -102,6 +102,8 @@ const mockMembers = <TeamMember>[
     badges: ['꾸준함 8주'],
   ),
   TeamMember(id: 'tm4', name: '도윤', intro: '포트폴리오 같이 다듬어요.', interests: ['디자인·영상'], step: 2, missionsDone: 9, records: 3),
+  TeamMember(id: 'tm5', name: '지우', intro: '피그마로 화면 그리는 걸 좋아해요.', interests: ['디자인·영상'], step: 2, missionsDone: 12, records: 6, badges: ['첫 발표']),
+  TeamMember(id: 'tm6', name: '현우', intro: '파이썬 조금 할 줄 알아요. 데이터 정리 맡을게요.', interests: ['IT·데이터'], step: 3, missionsDone: 20, records: 11),
 ];
 
 const mockTeamPosts = <TeamPost>[
@@ -117,6 +119,11 @@ const mockTeamPosts = <TeamPost>[
     mode: '온라인',
     leaderId: 'tm1',
     postedAgo: '2시간 전',
+    description: '매달 손으로 하던 지출 정리를 엑셀로 자동화해 보려고 해요.\n'
+        '1~2주차에는 함수·피벗을 같이 익히고, 3~4주차에는 각자 가계부 시트를 완성해서 서로 피드백해요.\n'
+        '결과물은 포트폴리오와 활동 기록에 넣을 수 있게 정리할 예정이에요.',
+    wantedRoles: ['엑셀·데이터', '기획', '상관없음'],
+    deadline: '2026-10-25',
   ),
   TeamPost(
     id: 'p2',
@@ -130,6 +137,12 @@ const mockTeamPosts = <TeamPost>[
     mode: '온라인',
     leaderId: 'tm2',
     postedAgo: '5시간 전',
+    memberIds: ['tm6'],
+    description: '청년 정책 아이디어 공모전(11월 마감)에 함께 나갈 팀원을 구해요.\n'
+        '아이디어는 같이 정하고, 자료 조사 → 기획서 → 발표 자료 순서로 진행할 거예요.\n'
+        '디자인을 맡아 줄 분이 있으면 정말 좋겠어요!',
+    wantedRoles: ['디자이너', '발표'],
+    deadline: '2026-10-22',
   ),
   TeamPost(
     id: 'p3',
@@ -140,9 +153,12 @@ const mockTeamPosts = <TeamPost>[
     max: 3,
     weeks: 4,
     perWeek: 2,
-    mode: '온라인',
+    mode: '온·오프라인',
     leaderId: 'tm3',
     postedAgo: '1일 전',
+    description: '동네 청년 활동을 소개하는 인스타 계정을 4주 동안 운영해 봐요.\n'
+        '콘텐츠 기획, 카드뉴스 제작, 업로드·분석까지 나눠서 해요. 마지막 주에는 성과를 정리해요.',
+    wantedRoles: ['디자이너', '콘텐츠 기획', '상관없음'],
   ),
   TeamPost(
     id: 'p4',
@@ -156,6 +172,11 @@ const mockTeamPosts = <TeamPost>[
     mode: '온라인',
     leaderId: 'tm4',
     postedAgo: '2일 전',
+    memberIds: ['tm5'],
+    description: '각자 포트폴리오를 만들되 매주 한 번 모여서 서로 피드백해요.\n'
+        '디자인·개발·기획 누구든 괜찮아요. 노션이나 피그마로 완성하는 게 목표예요.',
+    wantedRoles: ['상관없음'],
+    deadline: '2026-10-30',
   ),
 ];
 
@@ -173,7 +194,8 @@ const mockOpportunities = <Opportunity>[
 ];
 
 final mockScraps = <Scrap>[
-  Scrap(opportunityId: 'o5', applied: true, scrappedAt: DateTime(2026, 10, 12)),
+  Scrap(opportunityId: 'o5', applied: true, scrappedAt: DateTime(2026, 10, 12), appliedAt: DateTime(2026, 10, 13), stage: ApplyStage.document),
+  Scrap(opportunityId: 'o6', applied: true, scrappedAt: DateTime(2026, 10, 8), appliedAt: DateTime(2026, 10, 9), stage: ApplyStage.interview, memo: '10/22(수) 오후 2시 대면 면접'),
   Scrap(opportunityId: 'o7', scrappedAt: DateTime(2026, 10, 14)),
 ];
 
@@ -207,4 +229,107 @@ Opportunity? findOpportunity(String id) {
     if (o.id == id) return o;
   }
   return null;
+}
+
+// ── 팀원 활동 (팀원 프로필 → 완료한 미션 · 활동 기록)
+// 샘플이라 팀원마다 아래 목록을 돌려 쓰며 TeamMember.missionsDone / records 개수만큼 만들어요.
+// TODO(API): 팀원 공개 활동 조회로 교체
+const _missionPool = [
+  (1, '취업 유튜브 하나 보기', '취업', 10),
+  (1, '청년 적금 알아보기', '돈', 5),
+  (1, '매일 정해진 시간에 일어나기', '생활', 5),
+  (1, '동네 청년센터 동아리 찾아보기', '모임', 20),
+  (1, '청년 지원 정책 하나 읽어보기', '정책', 10),
+  (1, '관심 기업 공고 하나 읽어보기', '취업', 10),
+  (2, '미니 프로젝트 첫 회의 참여하기', '연결', 60),
+  (2, '팀원에게 맡은 부분 공유하기', '연결', 20),
+  (2, '프로젝트 중간 결과물 올리기', '연결', 90),
+  (3, '공모전 기획서 초안 쓰기', '도전', 120),
+  (3, '부트캠프 1주차 과제 제출', '도전', 90),
+  (4, '이력서 한 장 완성하기', '취업', 60),
+];
+
+const _recordPool = [
+  (
+    1,
+    '청년센터 독서 동아리 참여',
+    Star(
+      s: '쉬는 동안 사람들과 만날 기회가 거의 없었음',
+      t: '사람들과 정기적으로 교류하는 경험 만들기',
+      a: '동아리에 4주간 매주 참여하고 마지막 주에 읽은 책을 10분간 발표',
+      r: '발표 경험을 얻음 → 자기소개서 소통 경험으로 활용',
+    ),
+  ),
+  (
+    1,
+    '아침 7시 기상 2주 지키기',
+    Star(
+      s: '생활 리듬이 깨져서 오전 시간을 거의 못 씀',
+      t: '2주 동안 아침 7시에 일어나기',
+      a: '알람을 침대에서 먼 곳에 두고, 일어나면 바로 산책 15분',
+      r: '14일 중 12일 성공, 오전에 공부 시간 1시간 확보',
+    ),
+  ),
+  (
+    2,
+    '엑셀 가계부 프로젝트 함수 담당',
+    Star(
+      s: '팀 프로젝트에서 반복 계산이 많아 작업이 느렸음',
+      t: '자동 계산 시트를 만들어 팀 작업 시간 줄이기',
+      a: 'SUMIFS·피벗으로 카테고리별 합계 시트 제작, 팀원에게 사용법 공유',
+      r: '정리 시간이 주 2시간 → 20분으로 줄어듦',
+    ),
+  ),
+  (
+    2,
+    '공모전 팀 자료 조사 맡기',
+    Star(
+      s: '아이디어는 있었지만 근거 자료가 부족했음',
+      t: '공공데이터로 아이디어 근거 만들기',
+      a: '공공데이터포털에서 청년 통계 3종을 찾아 그래프로 정리',
+      r: '기획서 근거 페이지 완성, 팀원 피드백으로 발표에 그대로 사용',
+    ),
+  ),
+  (
+    3,
+    '데이터 분석 부트캠프 1주차',
+    Star(
+      s: '데이터 분석을 처음 배우는 상황',
+      t: '1주차 과제(데이터 정제) 기한 내 제출',
+      a: '강의 복습 후 결측치 처리 코드를 직접 작성, 질문 게시판 활용',
+      r: '과제 통과, 강사 피드백으로 코드 개선',
+    ),
+  ),
+];
+
+List<DoneMission> mockDoneMissionsOf(TeamMember m) {
+  final base = DateTime(2026, 10, 18);
+  return [
+    for (var i = 0; i < m.missionsDone; i++)
+      if (_missionPool[i % _missionPool.length] case (final step, final title, final category, final minutes))
+        DoneMission(
+          step: step > m.step ? m.step : step, // 아직 안 간 STEP 의 미션은 현재 STEP 으로
+          title: title,
+          category: category,
+          minutes: minutes,
+          doneAt: base.subtract(Duration(days: i * 2)),
+        ),
+  ];
+}
+
+List<ActivityRecord> mockRecordsOf(TeamMember m) {
+  final base = DateTime(2026, 10, 17);
+  String fmt(DateTime d) => '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+  return [
+    for (var i = 0; i < m.records; i++)
+      if (_recordPool[i % _recordPool.length] case (final step, final title, final star))
+        ActivityRecord(
+          id: '${m.id}-r$i',
+          step: step > m.step ? m.step : step,
+          title: title,
+          date: fmt(base.subtract(Duration(days: i * 3))),
+          raw: '',
+          star: star,
+        ),
+  ];
 }

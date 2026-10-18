@@ -104,6 +104,13 @@ class AppState extends ChangeNotifier {
   final List<Scrap> _scraps = [...mockScraps];
   List<Scrap> get scraps => List.unmodifiable(_scraps);
 
+  /// 지원한 공고만 (취업 지원현황 화면). 최근 지원 순
+  List<Scrap> get appliedScraps {
+    final v = _scraps.where((s) => s.applied).toList();
+    v.sort((a, b) => (b.appliedAt ?? b.scrappedAt).compareTo(a.appliedAt ?? a.scrappedAt));
+    return v;
+  }
+
   bool isScrapped(String opportunityId) => _scraps.any((s) => s.opportunityId == opportunityId);
 
   void toggleScrap(String opportunityId) {
@@ -115,14 +122,87 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 지원 여부 변경. 지원하면 '지원 완료' 단계부터 시작
   void setApplied(String opportunityId, bool applied) {
     final i = _scraps.indexWhere((s) => s.opportunityId == opportunityId);
     if (i < 0) return;
-    _scraps[i] = _scraps[i].copyWith(applied: applied);
+    final s = _scraps[i];
+    _scraps[i] = applied
+        ? s.copyWith(applied: true, appliedAt: s.appliedAt ?? DateTime.now(), stage: s.stage ?? ApplyStage.applied)
+        : s.copyWith(applied: false, clearApply: true);
     notifyListeners();
   }
 
-  // ───────────────────────── 팀 신청 (STEP 2)
+  /// 지원현황: 진행 단계 변경 (서류 심사 → 면접 → 합격/불합격)
+  void setApplyStage(String opportunityId, ApplyStage stage) {
+    final i = _scraps.indexWhere((s) => s.opportunityId == opportunityId);
+    if (i < 0) return;
+    _scraps[i] = _scraps[i].copyWith(applied: true, appliedAt: _scraps[i].appliedAt ?? DateTime.now(), stage: stage);
+    notifyListeners();
+  }
+
+  void setApplyMemo(String opportunityId, String memo) {
+    final i = _scraps.indexWhere((s) => s.opportunityId == opportunityId);
+    if (i < 0) return;
+    _scraps[i] = _scraps[i].copyWith(memo: memo);
+    notifyListeners();
+  }
+
+  // ───────────────────────── 팀 모집 글 · 팀 신청 (STEP 2)
+  final List<TeamPost> _teamPosts = [...mockTeamPosts];
+  List<TeamPost> get teamPosts => List.unmodifiable(_teamPosts);
+
+  TeamPost? teamPostById(String id) {
+    for (final p in _teamPosts) {
+      if (p.id == id) return p;
+    }
+    return null;
+  }
+
+  /// 팀원 정보. 내 id 면 현재 사용자 정보로 만들어서 돌려줌
+  TeamMember? memberById(String id) {
+    if (id == _user.id) {
+      return TeamMember(
+        id: _user.id,
+        name: _user.name,
+        intro: '',
+        interests: _user.interests,
+        step: _user.currentStep,
+        missionsDone: _missions.where((m) => m.status == MissionStatus.done).length,
+        records: _records.length,
+      );
+    }
+    return findMember(id);
+  }
+
+  /// 팀원의 완료한 미션 (내 id 면 내 데이터)
+  List<DoneMission> doneMissionsOf(String memberId) {
+    if (memberId == _user.id) {
+      return [
+        for (final m in _missions.where((m) => m.status == MissionStatus.done))
+          DoneMission(step: 1, title: m.title, category: m.category, minutes: m.minutes, doneAt: m.due ?? DateTime.now()),
+      ];
+    }
+    final m = findMember(memberId);
+    return m == null ? const [] : mockDoneMissionsOf(m);
+  }
+
+  /// 팀원의 활동 기록 (내 id 면 내 기록)
+  List<ActivityRecord> recordsOf(String memberId) {
+    if (memberId == _user.id) return records;
+    final m = findMember(memberId);
+    return m == null ? const [] : mockRecordsOf(m);
+  }
+
+  /// 내가 쓴 모집 글인지
+  bool isMyPost(TeamPost p) => p.leaderId == _user.id;
+
+  /// TODO(API): 모집 글 등록
+  void addTeamPost(TeamPost p) {
+    _teamPosts.insert(0, p);
+    notifyListeners();
+  }
+
   final List<TeamApplication> _applications = [];
   List<TeamApplication> get applications => List.unmodifiable(_applications);
 
@@ -133,9 +213,15 @@ class AppState extends ChangeNotifier {
     return null;
   }
 
+  /// TODO(API): 팀 신청 전송
   void applyTeam(TeamApplication a) {
     _applications.removeWhere((x) => x.postId == a.postId);
     _applications.add(a);
+    notifyListeners();
+  }
+
+  void cancelTeamApplication(String postId) {
+    _applications.removeWhere((x) => x.postId == postId);
     notifyListeners();
   }
 

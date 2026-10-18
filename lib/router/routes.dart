@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 
 import '../models/models.dart';
 import '../screens/all/all_screen.dart';
+import '../screens/application/application_status_screen.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/auth/signup_screen.dart';
 import '../screens/common/coming_soon_screen.dart';
@@ -21,8 +22,10 @@ import '../screens/record/record_list_screen.dart';
 import '../screens/record/record_result_screen.dart';
 import '../screens/record/record_write_screen.dart';
 import '../screens/shell/main_shell.dart';
+import '../screens/team/member_activity_screen.dart';
 import '../screens/team/member_profile_screen.dart';
 import '../screens/team/team_apply_screen.dart';
+import '../screens/team/team_post_write_screen.dart';
 
 class Routes {
   Routes._();
@@ -45,7 +48,12 @@ class Routes {
 
   // 팀 (STEP 2)
   static const memberProfile = '/team/member'; // 인자: String memberId
-  static const teamApply = '/team/apply'; // 인자: String postId
+  static const memberActivity = '/team/member/activity'; // 인자: ({String memberId, int tab}) — 완료한 미션·활동 기록
+  static const teamApply = '/team/apply'; // 인자: String postId. 신청하면 true 를 돌려줌
+  static const teamPostWrite = '/team/write'; // 팀 모집 글쓰기. 올리면 true 를 돌려줌
+
+  // 취업 (STEP 4)
+  static const applicationStatus = '/applications'; // 취업 지원현황
 
   // 기관
   static const programRegister = '/program/register';
@@ -69,7 +77,13 @@ Route<dynamic> onGenerateRoute(RouteSettings settings) {
     Routes.recordResult => RecordResultScreen(draft: args as ActivityRecord),
     Routes.missionEdit => const MissionEditScreen(),
     Routes.memberProfile => MemberProfileScreen(memberId: args as String),
+    Routes.memberActivity => switch (args) {
+        (memberId: final String id, tab: final int tab) => MemberActivityScreen(memberId: id, initialTab: tab),
+        _ => const ComingSoonScreen(title: '활동'),
+      },
     Routes.teamApply => TeamApplyScreen(postId: args as String),
+    Routes.teamPostWrite => const TeamPostWriteScreen(),
+    Routes.applicationStatus => const ApplicationStatusScreen(),
     Routes.programRegister => const ProgramRegisterScreen(),
     Routes.notifications => const NotificationScreen(),
     Routes.profile => const ProfileScreen(),
@@ -93,8 +107,17 @@ class AppNav {
   static Future<void> toMemberProfile(BuildContext context, String memberId) =>
       Navigator.pushNamed(context, Routes.memberProfile, arguments: memberId);
 
-  static Future<void> toTeamApply(BuildContext context, String postId) =>
-      Navigator.pushNamed(context, Routes.teamApply, arguments: postId);
+  /// 팀원 활동 자세히 보기. tab 0 = 완료한 미션, 1 = 활동 기록
+  static Future<void> toMemberActivity(BuildContext context, String memberId, {int tab = 0}) =>
+      Navigator.pushNamed(context, Routes.memberActivity, arguments: (memberId: memberId, tab: tab));
+
+  /// 신청을 완료하면 true
+  static Future<bool> toTeamApply(BuildContext context, String postId) async =>
+      await Navigator.pushNamed(context, Routes.teamApply, arguments: postId) == true;
+
+  /// 글을 올리면 true
+  static Future<bool> toTeamPostWrite(BuildContext context) async =>
+      await Navigator.pushNamed(context, Routes.teamPostWrite) == true;
 
   static Future<void> toComingSoon(BuildContext context, String title) =>
       Navigator.pushNamed(context, Routes.comingSoon, arguments: title);

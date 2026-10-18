@@ -125,6 +125,16 @@ class Mission {
   }
 }
 
+/// 완료한 미션 기록 (팀원 프로필 → 활동 자세히 보기)
+class DoneMission {
+  final int step;
+  final String title;
+  final String category;
+  final int minutes;
+  final DateTime doneAt;
+  const DoneMission({required this.step, required this.title, required this.category, required this.minutes, required this.doneAt});
+}
+
 // ── 활동 기록 (STAR)
 class Star {
   final String s; // 상황
@@ -183,14 +193,29 @@ class TeamPost {
   final String id;
   final String category;
   final String title;
-  final String desc;
+  final String desc; // 한 줄 소개 (목록 카드에 표시)
   final int current;
   final int max;
   final int weeks;
   final int perWeek;
-  final String mode; // 온라인 / 오프라인
+  final String mode; // 온라인 / 오프라인 / 온·오프라인
   final String leaderId;
   final String postedAgo;
+
+  /// 팀장을 뺀 현재 팀원 id 목록
+  final List<String> memberIds;
+
+  /// 프로젝트 설명 (팀 신청 화면에 표시하는 긴 글)
+  final String description;
+
+  /// 구하는 팀원 (예: 디자이너, 백엔드, 상관없음)
+  final List<String> wantedRoles;
+
+  /// 모집 마감일 (YYYY-MM-DD). 없으면 상시 모집
+  final String? deadline;
+
+  /// 연락용 오픈채팅 링크 (선택)
+  final String? contactLink;
 
   const TeamPost({
     required this.id,
@@ -204,7 +229,14 @@ class TeamPost {
     required this.mode,
     required this.leaderId,
     required this.postedAgo,
+    this.memberIds = const [],
+    this.description = '',
+    this.wantedRoles = const [],
+    this.deadline,
+    this.contactLink,
   });
+
+  bool get isFull => current >= max;
 }
 
 class TeamMember {
@@ -238,6 +270,7 @@ class TeamApplication {
   final String message;
   final List<String> sharedRecordIds;
   final ApplicationStatus status;
+  final DateTime? appliedAt;
 
   const TeamApplication({
     required this.postId,
@@ -246,8 +279,15 @@ class TeamApplication {
     required this.message,
     this.sharedRecordIds = const [],
     this.status = ApplicationStatus.pending,
+    this.appliedAt,
   });
 }
+
+const applicationStatusLabel = {
+  ApplicationStatus.pending: '응답 대기',
+  ApplicationStatus.accepted: '참여 확정',
+  ApplicationStatus.rejected: '아쉽게 마감',
+};
 
 // ── STEP 3 · 도전 / STEP 4 · 취업 (공고)
 enum OpportunityKind { bootcamp, contest, activity, education, job }
@@ -289,15 +329,53 @@ class Opportunity {
   });
 }
 
-/// 공고 스크랩 + 지원 여부 (취업 지원 현황)
+/// 취업 지원 진행 단계 (지원현황 화면)
+enum ApplyStage {
+  applied('지원 완료'),
+  document('서류 심사'),
+  interview('면접'),
+  passed('최종 합격'),
+  failed('불합격');
+
+  const ApplyStage(this.label);
+  final String label;
+
+  /// 진행 중(합격·불합격 전) 단계인지
+  bool get inProgress => this != passed && this != failed;
+}
+
+/// 활동 스크랩 + 지원 여부 (취업 지원 현황)
 class Scrap {
   final String opportunityId;
   final bool applied;
   final DateTime scrappedAt;
-  const Scrap({required this.opportunityId, this.applied = false, required this.scrappedAt});
 
-  Scrap copyWith({bool? applied}) =>
-      Scrap(opportunityId: opportunityId, applied: applied ?? this.applied, scrappedAt: scrappedAt);
+  /// 지원한 날짜 (applied 일 때만)
+  final DateTime? appliedAt;
+
+  /// 지원 진행 단계 (applied 일 때만)
+  final ApplyStage? stage;
+
+  /// 지원현황 메모 (면접 일정 등)
+  final String memo;
+
+  const Scrap({
+    required this.opportunityId,
+    this.applied = false,
+    required this.scrappedAt,
+    this.appliedAt,
+    this.stage,
+    this.memo = '',
+  });
+
+  Scrap copyWith({bool? applied, DateTime? appliedAt, ApplyStage? stage, String? memo, bool clearApply = false}) => Scrap(
+        opportunityId: opportunityId,
+        applied: applied ?? this.applied,
+        scrappedAt: scrappedAt,
+        appliedAt: clearApply ? null : (appliedAt ?? this.appliedAt),
+        stage: clearApply ? null : (stage ?? this.stage),
+        memo: memo ?? this.memo,
+      );
 }
 
 // ── 기관 프로그램 등록
