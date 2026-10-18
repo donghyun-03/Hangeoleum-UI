@@ -32,3 +32,7 @@ flutter:
           weight: 500
         - asset: assets/fonts/Pretendard-Bold.otf
           weight: 700
+
+  assets:
+    - assets/images/logo.png
+
