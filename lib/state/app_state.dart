@@ -22,6 +22,33 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 홈에서 최소 활동 수를 완료한 뒤 다음 STEP으로 이동합니다.
+  ///
+  /// 완료 수는 홈에서 각 STEP 활동의 done 상태로 집계합니다.
+  /// 연속 클릭으로 여러 단계를 건너뛰지 않도록 현재 STEP을 확인합니다.
+  bool advanceHomeStep({
+    required int expectedStep,
+    required int completedCount,
+  }) {
+    final currentStep = _user.currentStep;
+
+    if (currentStep != expectedStep) return false;
+    if (currentStep < 1 || currentStep >= 4) return false;
+
+    final requiredCount = currentStep == 1 ? 3 : 1;
+
+    if (completedCount < requiredCount) return false;
+
+    _user = _user.copyWith(
+      currentStep: currentStep + 1,
+    );
+
+    notifyListeners();
+    return true;
+  }
+
+
+
   /// TODO(인증): 로그인 API 연결 후 응답의 role / diagnosed 로 교체
   void loginAs(UserRole role, {bool diagnosed = true}) {
     _user = _user.copyWith(
@@ -134,3 +161,5 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 }
+
+

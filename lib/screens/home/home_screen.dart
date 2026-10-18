@@ -236,20 +236,43 @@ class _YouthHome extends StatelessWidget {
 
     final activities = _collectActivities(state);
 
-    final currentActivities = activities
-        .where((activity) => activity.step == currentStep)
-        .toList();
+    final currentActivities = [
+  ...activities.where(
+    (activity) =>
+        activity.step == currentStep && !activity.done,
+  ),
+  ...activities.where(
+    (activity) =>
+        activity.step == currentStep && activity.done,
+  ),
+];
 
+
+    // 현재 STEP이 아닌 활동 중 미완료 활동만 표시합니다.
+    // STEP이 바뀌면 이전 단계의 미완료 활동이 자동으로 여기에 포함됩니다.
     final otherActivities = activities
-        .where((activity) => activity.step != currentStep)
+        .where(
+          (activity) =>
+              activity.step != currentStep &&
+              !activity.done,
+        )
         .toList()
-      ..sort((a, b) => a.step.compareTo(b.step));
+      ..sort((a, b) {
+        final stepOrder = a.step.compareTo(b.step);
 
-    final doneCount =
-        currentActivities.where((activity) => activity.done).length;
+        // 같은 STEP에서는 제목순으로 정렬합니다.
+        return stepOrder != 0
+            ? stepOrder
+            : a.title.compareTo(b.title);
+      });
 
-    final otherCount =
-        otherActivities.where((activity) => !activity.done).length;
+    final doneCount = currentActivities
+        .where((activity) => activity.done)
+        .length;
+
+    final requiredCount = currentStep == 1 ? 3 : 1;
+
+    final otherCount = otherActivities.length;
 
     return Column(
   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -294,23 +317,21 @@ class _YouthHome extends StatelessWidget {
                       ),
                     const SizedBox(height: 10),
                     Text(
-                      currentStep == 1
-                          ? '활동 $doneCount/${currentActivities.length} 완료'
-                          : '활동 ${currentActivities.length}개',
+                      '활동 $doneCount/$requiredCount 완료',
                       style: AppText.bodyBold.copyWith(
                         fontSize: 13,
                         color: AppColors.ink,
                       ),
                     ),
-                    if (currentStep == 1) ...[
-                      const SizedBox(height: 10),
-                      ProgressLine(
-                        value: doneCount,
-                        total: currentActivities.isEmpty
-                            ? 1
-                            : currentActivities.length,
-                      ),
-                    ],
+                    const SizedBox(height: 10),
+                    ProgressLine(
+                      // 최소 완료 수 이상이면 진행률은 100%로 유지합니다.
+                      value: doneCount > requiredCount
+                          ? requiredCount
+                          : doneCount,
+                      total: requiredCount,
+                    ),
+                    const SizedBox(height: 12),
                   ],
                 ),
               ),
@@ -359,7 +380,7 @@ class _YouthHome extends StatelessWidget {
     ),
 
     // 활동 수정 버튼은 잠시 숨깁니다.
-    /*
+    
     AppButton(
       label: '활동 수정',
       icon: Icons.edit_outlined,
@@ -368,7 +389,7 @@ class _YouthHome extends StatelessWidget {
         Navigator.pushNamed(context, Routes.missionEdit);
       },
     ),
-    */
+    
 
     const SizedBox(height: 24),
     Row(
