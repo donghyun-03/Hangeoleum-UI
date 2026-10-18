@@ -208,21 +208,30 @@ class _SignupScreenState extends State<SignupScreen> {
                     children: [
                       AppButton(label: '가입하기', onPressed: _submit),
                       const SizedBox(height: 4),
-                      Wrap(
-                        alignment: WrapAlignment.center,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          Text('이미 계정이 있나요?', style: AppText.small.copyWith(fontSize: 12.5)),
-                          TextButton(
-                            onPressed: () => Navigator.pushNamed(context, Routes.login),
-                            child: Text('로그인', style: AppText.body.copyWith(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.black,
-                            )),
-                          ),
-                        ],
+                      Padding(
+                        padding: const EdgeInsets.only(top: 16),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              '이미 계정이 있나요? ',
+                              style: AppText.small.copyWith(fontSize: 12.5),
+                            ),
+                            GestureDetector(
+                              onTap: () => Navigator.pushNamed(context, Routes.login),
+                              child: Text(
+                                '로그인',
+                                style: AppText.body.copyWith(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.black,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
+                      const SizedBox(height: 25)
                     ],
                   ),
                 ),
@@ -329,31 +338,34 @@ class _SignupScreenState extends State<SignupScreen> {
           LabeledField(hint: '상세 주소', controller: _f['addressDetail']),
           const SizedBox(height: 16),
           InkWell(
-            onTap: () => setState(() => _agree = !_agree),
-            child: Row(children: [
-              Container(
-  width: 17,
-  height: 17,
-  decoration: BoxDecoration(
-    color: _agree ? Colors.black : Colors.transparent,
-    border: Border.all(
-      color: _agree ? Colors.black : AppColors.subtle,
-      width: 1.5,
-    ),
-    borderRadius: BorderRadius.circular(6),
-  ),
-  child: _agree
-      ? const Icon(
-          Icons.check,
-          size: 15,
-          color: Colors.white,
-        )
-      : null,
+  onTap: () => setState(() => _agree = !_agree),
+  child: Padding(
+    padding: const EdgeInsets.symmetric(vertical: 0),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        // 흰색 배경 위에 검정 체크박스 아이콘 표시.
+        Icon(
+  _agree
+      ? Icons.check_box
+      : Icons.check_box_outline_blank,
+  size: 20,
+  color: _agree
+      ? AppColors.ink
+      : AppColors.subtle,
 ),
-              const SizedBox(width: 6),
-              Expanded(child: Text('[필수] 개인정보 수집·이용 동의', style: AppText.body.copyWith(fontSize: 15, fontWeight: FontWeight.w700,),)),
-            ]),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            '[필수] 개인정보 수집·이용 동의',
+            style: AppText.body.copyWith(fontSize: 14),
           ),
+        ),
+      ],
+    ),
+  ),
+),
+
           ErrorText(_error),
                             ],
                           );
