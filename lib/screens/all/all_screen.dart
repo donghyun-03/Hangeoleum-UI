@@ -38,41 +38,115 @@ class _AllScreenState extends State<AllScreen> {
     final q = _search.text.trim();
 
     final services = <(IconData, String, String, VoidCallback)>[
-      (Icons.edit_note, '활동 기록', '오늘 한 일을 STAR로 정리', () => Navigator.pushNamed(context, Routes.recordList)),
-      (Icons.folder_outlined, '내 경험 정리', '경험 리포트 · 포트폴리오 · 자기소개서', () => AppNav.toComingSoon(context, '내 경험 정리')),
-      (Icons.work_outline, '채용 · 공모전', '나에게 맞는 공고 찾아보기', () => _goTab(MainTab.step, step: 4)),
-      (Icons.bookmark_border, '공고 스크랩', '스크랩한 공고 · 지원 현황', () => _goTab(MainTab.scrap)),
-      (Icons.groups_outlined, '미니 프로젝트', '모여서 2-3명이 4주 도전', () => _goTab(MainTab.step, step: 2)),
-      (Icons.notifications_none, '알림', '맞춤 알림 · 마감 임박 소식', () => Navigator.pushNamed(context, Routes.notifications)),
-      (Icons.person_outline, '내 정보', '프로필 · 관심 분야 · 알림 설정', () => Navigator.pushNamed(context, Routes.profile)),
+      (
+        Icons.edit_note,
+        '활동 기록',
+        '오늘 한 일을 STAR로 정리',
+        () => Navigator.pushNamed(context, Routes.recordList),
+      ),
+      (
+        Icons.folder_outlined,
+        '내 경험 정리',
+        '경험 리포트 · 포트폴리오 · 자기소개서',
+        () => AppNav.toComingSoon(context, '내 경험 정리'),
+      ),
+      (
+        Icons.emoji_events_outlined,
+        '활동',
+        '공모전 · 캠프 · 대외활동 모아보기',
+        () => _goTab(MainTab.step, step: 3),
+      ),
+      (
+        Icons.work_outline,
+        '채용',
+        '나에게 맞는 채용 공고 찾아보기',
+        () => _goTab(MainTab.step, step: 4),
+      ),
+      (
+        Icons.bookmark_border,
+        '공고 스크랩',
+        '스크랩한 공고 · 지원 현황',
+        () => _goTab(MainTab.scrap),
+      ),
+      (
+        Icons.groups_outlined,
+        '미니 프로젝트',
+        '모여서 2-3명이 4주 도전',
+        () => _goTab(MainTab.step, step: 2),
+      ),
+      (
+        Icons.notifications_none,
+        '알림',
+        '맞춤 알림 · 마감 임박 소식',
+        () => Navigator.pushNamed(context, Routes.notifications),
+      ),
+      (
+        Icons.person_outline,
+        '내 정보',
+        '프로필 · 관심 분야 · 알림 설정',
+        () => Navigator.pushNamed(context, Routes.profile),
+      ),
       if (state.isInstitution)
-        (Icons.add_box_outlined, '프로그램 등록', '기관 프로그램 · 채용 공고 올리기', () => Navigator.pushNamed(context, Routes.programRegister)),
+        (
+          Icons.add_box_outlined,
+          '프로그램 등록',
+          '기관 프로그램 · 채용 공고 올리기',
+          () => Navigator.pushNamed(context, Routes.programRegister),
+        ),
     ];
-    final shownServices = services.where((s) => q.isEmpty || '${s.$2} ${s.$3}'.contains(q)).toList();
-    final results = q.isEmpty ? <Opportunity>[] : mockOpportunities.where((o) => '${o.title} ${o.org} ${o.field}'.contains(q)).toList();
+    final shownServices = services
+        .where((s) => q.isEmpty || '${s.$2} ${s.$3}'.contains(q))
+        .toList();
+    final results = q.isEmpty
+        ? <Opportunity>[]
+        : mockOpportunities.where((o) => o.title.contains(q)).toList();
 
     return Scaffold(
+      backgroundColor: AppColors.paper,
       appBar: AppBar(
         title: const Text('전체'),
         centerTitle: false,
         titleSpacing: 20,
-        actions: [
-          IconButton(
-            tooltip: '알림 ${state.unreadCount}건',
-            onPressed: () => Navigator.pushNamed(context, Routes.notifications),
-            icon: const Icon(Icons.notifications_none),
-          ),
-          const SizedBox(width: 8),
-        ],
       ),
       body: ListView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(12),
         children: [
-          SearchField(controller: _search, hint: '서비스, 채용, 공모전 검색', onChanged: (_) => setState(() {})),
+          SearchField(
+            controller: _search,
+            hint: '서비스, 활동, 채용 검색',
+            onChanged: (_) => setState(() {}),
+          ),
           if (q.isEmpty) ...[
-            SectionTitle('나에게 맞는 추천', aside: '더보기', onAside: () => _goTab(MainTab.step, step: 3)),
+            Padding(
+              padding: const EdgeInsets.only(top: 20, bottom: 10),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text(
+                    '나에게 맞는 추천',
+                    style: AppText.bodyBold.copyWith(fontSize: 16),
+                  ),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(8),
+                    hoverColor: AppColors.soft,
+                    onTap: () => _goTab(MainTab.step, step: 3),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      child: Text(
+                        '더보기',
+                        style: AppText.caption.copyWith(fontSize: 12.5),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
             SizedBox(
-              height: 112,
+              height: 120,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 itemCount: 4,
@@ -80,17 +154,51 @@ class _AllScreenState extends State<AllScreen> {
                 itemBuilder: (context, i) {
                   final o = mockOpportunities[i];
                   return SizedBox(
-                    width: 150,
-                    child: AppCard(
-                      margin: EdgeInsets.zero,
-                      padding: const EdgeInsets.all(12),
-                      onTap: () => _goTab(MainTab.step, step: o.step),
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(kindLabel[o.kind]!, style: AppText.caption.copyWith(fontSize: 10.5)),
-                        Text(o.title, style: AppText.bodyBold.copyWith(fontSize: 13), maxLines: 2, overflow: TextOverflow.ellipsis),
-                        const Spacer(),
-                        Text('D-${o.dday} · ${o.region}', style: AppText.caption.copyWith(fontSize: 11)),
-                      ]),
+                    width: 180,
+                    child: Material(
+                      color: AppColors.soft,
+                      borderRadius: BorderRadius.circular(20),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(20),
+                        onTap: () => AppNav.toComingSoon(context, o.title),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.paper,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  kindLabel[o.kind]!,
+                                  style: AppText.caption.copyWith(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                o.title,
+                                style: AppText.bodyBold.copyWith(fontSize: 15),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const Spacer(),
+                              Text(
+                                'D-${o.dday} · ${o.region}',
+                                style: AppText.caption.copyWith(fontSize: 12),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
                   );
                 },
@@ -98,32 +206,81 @@ class _AllScreenState extends State<AllScreen> {
             ),
           ],
           if (results.isNotEmpty) ...[
-            SectionTitle('공고', aside: '${results.length}건'),
+            SectionTitle('활동 · 채용', aside: '${results.length}건'),
             for (final o in results)
               AppCard(
-                onTap: () => _goTab(MainTab.step, step: o.step),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('${kindLabel[o.kind]} · D-${o.dday}', style: AppText.caption.copyWith(fontSize: 11)),
-                  Text(o.title, style: AppText.bodyBold),
-                ]),
+                onTap: () => AppNav.toComingSoon(context, o.title),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${kindLabel[o.kind]} · D-${o.dday}',
+                      style: AppText.caption.copyWith(fontSize: 11),
+                    ),
+                    Text(o.title, style: AppText.bodyBold),
+                  ],
+                ),
               ),
           ],
-          const SectionTitle('전체 서비스'),
-          AppCard(
-            padding: EdgeInsets.zero,
-            child: Column(children: [
-              for (var i = 0; i < shownServices.length; i++) ...[
-                if (i > 0) const Divider(),
-                ListTile(
-                  leading: Icon(shownServices[i].$1, color: AppColors.muted),
-                  title: Text(shownServices[i].$2, style: AppText.bodyBold.copyWith(fontSize: 13.5)),
-                  subtitle: Text(shownServices[i].$3, style: AppText.caption),
-                  trailing: const Icon(Icons.chevron_right, color: AppColors.dim),
-                  onTap: shownServices[i].$4,
+          if (q.isNotEmpty && shownServices.isEmpty && results.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 60),
+              child: Column(
+                children: [
+                  Icon(Icons.search, size: 48, color: AppColors.dim),
+                  const SizedBox(height: 16),
+                  Text(
+                    '검색 결과가 없어요',
+                    style: AppText.bodyBold.copyWith(
+                      fontSize: 16,
+                      color: AppColors.muted,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else ...[
+            if (shownServices.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 20, bottom: 10),
+                child: Text(
+                  q.isEmpty ? '전체 서비스' : '서비스',
+                  style: AppText.bodyBold.copyWith(fontSize: 16),
                 ),
+              ),
+            Column(
+              children: [
+                for (var i = 0; i < shownServices.length; i++) ...[
+                  if (i > 0) const Divider(height: 1),
+                  ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                    leading: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: AppColors.soft,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Icon(shownServices[i].$1, color: AppColors.ink),
+                    ),
+                    title: Text(
+                      shownServices[i].$2,
+                      style: AppText.bodyBold.copyWith(fontSize: 15),
+                    ),
+                    subtitle: Text(
+                      shownServices[i].$3,
+                      style: AppText.caption.copyWith(fontSize: 12.5),
+                    ),
+                    trailing: const Icon(
+                      Icons.chevron_right,
+                      color: AppColors.dim,
+                    ),
+                    onTap: shownServices[i].$4,
+                  ),
+                ],
               ],
-            ]),
-          ),
+            ),
+          ],
         ],
       ),
     );
