@@ -317,18 +317,29 @@ class _SignupScreenState extends State<SignupScreen> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  OutlinedButton(
-                    style: OutlinedButton.styleFrom(
-                      backgroundColor: AppColors.paper,
-                      foregroundColor: AppColors.ink,
+                  Material(
+                    color: AppColors.paper,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppRadius.md),
                       side: const BorderSide(color: AppColors.line),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(AppRadius.sm),
-                      ),
-                      minimumSize: const Size(64, 48),
                     ),
-                    onPressed: () {},
-                    child: Text('검색', style: AppText.body.copyWith(fontSize: 14)),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                      onTap: () {},
+                      child: SizedBox(
+                        width: 64,
+                        height: 48,
+                        child: Center(
+                          child: Text(
+                            '검색',
+                            style: AppText.body.copyWith(
+                              fontSize: 14,
+                              color: AppColors.ink,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),
