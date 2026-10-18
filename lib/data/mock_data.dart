@@ -102,6 +102,8 @@ const mockMembers = <TeamMember>[
     badges: ['꾸준함 8주'],
   ),
   TeamMember(id: 'tm4', name: '도윤', intro: '포트폴리오 같이 다듬어요.', interests: ['디자인·영상'], step: 2, missionsDone: 9, records: 3),
+  TeamMember(id: 'tm5', name: '지우', intro: '피그마로 화면 그리는 걸 좋아해요.', interests: ['디자인·영상'], step: 2, missionsDone: 12, records: 6, badges: ['첫 발표']),
+  TeamMember(id: 'tm6', name: '현우', intro: '파이썬 조금 할 줄 알아요. 데이터 정리 맡을게요.', interests: ['IT·데이터'], step: 3, missionsDone: 20, records: 11),
 ];
 
 const mockTeamPosts = <TeamPost>[
@@ -117,6 +119,11 @@ const mockTeamPosts = <TeamPost>[
     mode: '온라인',
     leaderId: 'tm1',
     postedAgo: '2시간 전',
+    description: '매달 손으로 하던 지출 정리를 엑셀로 자동화해 보려고 해요.\n'
+        '1~2주차에는 함수·피벗을 같이 익히고, 3~4주차에는 각자 가계부 시트를 완성해서 서로 피드백해요.\n'
+        '결과물은 포트폴리오와 활동 기록에 넣을 수 있게 정리할 예정이에요.',
+    wantedRoles: ['엑셀·데이터', '기획', '상관없음'],
+    deadline: '2026-10-25',
   ),
   TeamPost(
     id: 'p2',
@@ -130,6 +137,12 @@ const mockTeamPosts = <TeamPost>[
     mode: '온라인',
     leaderId: 'tm2',
     postedAgo: '5시간 전',
+    memberIds: ['tm6'],
+    description: '청년 정책 아이디어 공모전(11월 마감)에 함께 나갈 팀원을 구해요.\n'
+        '아이디어는 같이 정하고, 자료 조사 → 기획서 → 발표 자료 순서로 진행할 거예요.\n'
+        '디자인을 맡아 줄 분이 있으면 정말 좋겠어요!',
+    wantedRoles: ['디자이너', '발표'],
+    deadline: '2026-10-22',
   ),
   TeamPost(
     id: 'p3',
@@ -140,9 +153,12 @@ const mockTeamPosts = <TeamPost>[
     max: 3,
     weeks: 4,
     perWeek: 2,
-    mode: '온라인',
+    mode: '온·오프라인',
     leaderId: 'tm3',
     postedAgo: '1일 전',
+    description: '동네 청년 활동을 소개하는 인스타 계정을 4주 동안 운영해 봐요.\n'
+        '콘텐츠 기획, 카드뉴스 제작, 업로드·분석까지 나눠서 해요. 마지막 주에는 성과를 정리해요.',
+    wantedRoles: ['디자이너', '콘텐츠 기획', '상관없음'],
   ),
   TeamPost(
     id: 'p4',
@@ -156,6 +172,11 @@ const mockTeamPosts = <TeamPost>[
     mode: '온라인',
     leaderId: 'tm4',
     postedAgo: '2일 전',
+    memberIds: ['tm5'],
+    description: '각자 포트폴리오를 만들되 매주 한 번 모여서 서로 피드백해요.\n'
+        '디자인·개발·기획 누구든 괜찮아요. 노션이나 피그마로 완성하는 게 목표예요.',
+    wantedRoles: ['상관없음'],
+    deadline: '2026-10-30',
   ),
 ];
 
@@ -173,7 +194,8 @@ const mockOpportunities = <Opportunity>[
 ];
 
 final mockScraps = <Scrap>[
-  Scrap(opportunityId: 'o5', applied: true, scrappedAt: DateTime(2026, 10, 12)),
+  Scrap(opportunityId: 'o5', applied: true, scrappedAt: DateTime(2026, 10, 12), appliedAt: DateTime(2026, 10, 13), stage: ApplyStage.document),
+  Scrap(opportunityId: 'o6', applied: true, scrappedAt: DateTime(2026, 10, 8), appliedAt: DateTime(2026, 10, 9), stage: ApplyStage.interview, memo: '10/22(수) 오후 2시 대면 면접'),
   Scrap(opportunityId: 'o7', scrappedAt: DateTime(2026, 10, 14)),
 ];
 

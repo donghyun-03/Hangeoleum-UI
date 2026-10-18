@@ -1,8 +1,10 @@
 // [추가 기능 6] 팀원 프로필 — STEP 2 팀 카드의 사람 아이콘에서 진입 (디자인 없음 → 임시 레이아웃)
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../data/mock_data.dart';
 import '../../router/routes.dart';
+import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
 
@@ -13,11 +15,13 @@ class MemberProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // TODO(API): 회원 공개 프로필 조회
-    final m = findMember(memberId);
+    final state = context.watch<AppState>();
+    final m = state.memberById(memberId);
     if (m == null) {
       return Scaffold(appBar: AppBar(title: const Text('팀원 프로필')), body: const EmptyState(title: '프로필을 찾을 수 없어요'));
     }
-    final posts = mockTeamPosts.where((p) => p.leaderId == m.id).toList();
+    // 팀장이거나 팀원으로 참여 중인 모집 글
+    final posts = state.teamPosts.where((p) => p.leaderId == m.id || p.memberIds.contains(m.id)).toList();
 
     return Scaffold(
       appBar: AppBar(title: const Text('팀원 프로필')),
@@ -45,8 +49,8 @@ class MemberProfileScreen extends StatelessWidget {
             const SectionTitle('배지'),
             ChipWrap(children: [for (final b in m.badges) TagBadge(b)]),
           ],
-          const SectionTitle('모집 중인 프로젝트'),
-          if (posts.isEmpty) Text('모집 중인 프로젝트가 없어요.', style: AppText.caption.copyWith(fontSize: 12.5)),
+          const SectionTitle('참여 중인 프로젝트'),
+          if (posts.isEmpty) Text('참여 중인 프로젝트가 없어요.', style: AppText.caption.copyWith(fontSize: 12.5)),
           for (final p in posts)
             AppCard(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -54,7 +58,7 @@ class MemberProfileScreen extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(p.title, style: AppText.bodyBold),
                 const SizedBox(height: 8),
-                AppButton(label: '이 팀에 신청하기', small: true, expand: false, onPressed: () => AppNav.toTeamApply(context, p.id)),
+                AppButton(label: '모집 글 보기', small: true, expand: false, onPressed: () => AppNav.toTeamApply(context, p.id)),
               ]),
             ),
           const TodoBox("공개 범위(활동 기록 미리보기 노출 여부) 정해지면 '최근 활동 기록' 섹션 추가"),

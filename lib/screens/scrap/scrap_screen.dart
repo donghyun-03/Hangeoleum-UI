@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../data/mock_data.dart';
 import '../../models/models.dart';
 import '../../router/main_tabs.dart';
+import '../../router/routes.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
@@ -49,7 +50,14 @@ class _ScrapScreenState extends State<ScrapScreen> {
               (applied, '지원 완료'),
             ]),
           ),
-          const SizedBox(height: 4),
+          // 지원한 공고의 진행 단계(서류·면접·결과)는 취업 지원현황에서 관리
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: () => Navigator.pushNamed(context, Routes.applicationStatus),
+              child: Text('취업 지원현황 보기 ›', style: AppText.caption.copyWith(fontSize: 12, color: AppColors.green)),
+            ),
+          ),
           ChipWrap(children: [
             for (final (f, label) in [(_Filter.all, '전체'), (_Filter.todo, '지원 전'), (_Filter.applied, '지원 완료')])
               SelectChip(label: label, selected: _filter == f, onTap: () => setState(() => _filter = f)),

@@ -28,7 +28,9 @@ class _StepScreenState extends State<StepScreen> {
   @override
   Widget build(BuildContext context) {
     final tabs = context.watch<MainTabs>();
-    final isInstitution = context.watch<AppState>().isInstitution;
+    final appState = context.watch<AppState>();
+    final isInstitution = appState.isInstitution;
+    final appliedCount = appState.appliedScraps.where((x) => x.stage?.inProgress ?? true).length;
     final step = tabs.step;
     final info = stepInfo[step]!;
 
@@ -76,7 +78,10 @@ class _StepScreenState extends State<StepScreen> {
                 small: true,
                 expand: false,
                 onPressed: () => Navigator.pushNamed(context, Routes.programRegister),
-              ),
+              )
+            // 청년 계정: STEP 4 오른쪽 위 '지원현황' → 취업 지원현황
+            else if (!isInstitution && step == 4)
+              _ApplyStatusButton(count: appliedCount),
           ]),
           const SizedBox(height: 14),
           ChipWrap(children: [
@@ -92,6 +97,30 @@ class _StepScreenState extends State<StepScreen> {
           },
         ],
       ),
+    );
+  }
+}
+
+class _ApplyStatusButton extends StatelessWidget {
+  const _ApplyStatusButton({required this.count});
+
+  /// 진행 중인 지원 수 (배지)
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      onPressed: () => Navigator.pushNamed(context, Routes.applicationStatus),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: AppColors.green,
+        side: const BorderSide(color: AppColors.green),
+        shape: const StadiumBorder(),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        minimumSize: const Size(0, 34),
+        textStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
+      ),
+      icon: const Icon(Icons.assignment_turned_in_outlined, size: 16),
+      label: Text(count > 0 ? '지원현황 $count' : '지원현황'),
     );
   }
 }
