@@ -8,6 +8,7 @@ import '../../models/models.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
+import '../../widgets/filter_panel.dart';
 
 const _categories = ['데이터·엑셀', '공모전', '마케팅·기획', '디자인', '개발', '스터디', '기타'];
 const _rolePresets = ['기획', '디자이너', '프론트엔드', '백엔드', '엑셀·데이터', '콘텐츠 기획', '발표', '상관없음'];
@@ -146,7 +147,7 @@ class _TeamPostWriteScreenState extends State<TeamPostWriteScreen> {
           const SectionTitle('구하는 팀원', aside: '여러 개 선택'),
           ChipWrap(children: [
             for (final r in _rolePresets) SelectChip(label: r, selected: _roles.contains(r), onTap: () => _toggleRole(r)),
-            for (final r in customRoles) SelectChip(label: '$r ✕', selected: true, onTap: () => _toggleRole(r)),
+            for (final r in customRoles) RemovableChip(label: r, onRemove: () => _toggleRole(r)),
           ]),
           const SizedBox(height: 8),
           Row(children: [
