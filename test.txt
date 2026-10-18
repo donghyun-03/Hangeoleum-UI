@@ -1,0 +1,25 @@
+Resolving dependencies...
+Downloading packages...
+  cross_file 0.3.5+5 (0.4.0 available)
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  petitparser 7.0.2 (7.1.0 available)
+  test_api 0.7.12 (0.7.15 available)
+  vector_math 2.4.0 (2.4.3 available)
+  vm_service 15.3.0 (15.4.0 available)
+  xml 7.0.1 (7.1.0 available)
+Got dependencies!
+9 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+
+::group::✅ Passing tests
+✅ STEP 2: 팀 신청하면 내가 신청한 글에 보임
+✅ STEP 2: 모집 글쓰기 → 내가 쓴 글에 보임
+✅ 팀원 프로필 → 완료한 미션 · 활동 기록 자세히 보기
+✅ STEP 4: 지원현황 버튼 → 카드 목록
+✅ 로그인 미리보기 → 홈 → STEP 탭 이동
+✅ 스크랩 탭: 지원 여부 바꾸기
+::endgroup::
+
+🎉 6 tests passed.
