@@ -115,7 +115,7 @@ class _TeamApplyScreenState extends State<TeamApplyScreen> {
             const SizedBox(height: 16),
             AppCard(color: AppColors.soft, child: Text('모집이 끝난 팀이에요.', style: AppText.small.copyWith(fontSize: 13))),
           ] else ...[
-            if (_prev != null) _AppliedBanner(application: _prev!, onCancel: _cancel),
+            if (_prev != null) _AppliedBanner(application: _prev, onCancel: _cancel),
             const SectionTitle('맡고 싶은 역할'),
             ChipWrap(children: [
               // 팀이 구하는 역할 + '상관없어요'
