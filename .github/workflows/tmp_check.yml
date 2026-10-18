@@ -1,0 +1,30 @@
+name: tmp-check
+on:
+  push:
+    branches: [tmp-ci-check]
+permissions:
+  contents: write
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: run
+        run: |
+          mkdir -p /tmp/out
+          flutter pub get > /tmp/out/pubget.txt 2>&1
+          flutter analyze > /tmp/out/analyze.txt 2>&1 || true
+          flutter test > /tmp/out/test.txt 2>&1 || true
+          flutter build web --release --no-web-resources-cdn > /tmp/out/build.txt 2>&1 || true
+          if [ -d build/web ]; then cp -r build/web /tmp/out/web; fi
+      - name: push results
+        run: |
+          cd /tmp/out
+          git init -q -b tmp-ci-out
+          git config user.name ci && git config user.email ci@example.com
+          git add -A && git commit -qm "ci output"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" tmp-ci-out
