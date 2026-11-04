@@ -123,6 +123,7 @@ class HomeScreen extends StatelessWidget {
 /// 홈 표시용 데이터입니다.
 class _HomeActivity {
   const _HomeActivity({
+    required this.id,
     required this.step,
     required this.title,
     required this.detail,
@@ -131,6 +132,7 @@ class _HomeActivity {
     this.done = false,
   });
 
+  final String id;
   final int step;
   final String title;
   final String detail;
@@ -138,6 +140,7 @@ class _HomeActivity {
   final bool done;
   final VoidCallback onToggleDone;
 }
+
 
 
 class _YouthHome extends StatelessWidget {
@@ -155,6 +158,7 @@ class _YouthHome extends StatelessWidget {
 
       activities.add(
         _HomeActivity(
+          id: mission.id,
           step: 1,
           title: mission.title,
           detail: [
@@ -201,6 +205,7 @@ class _YouthHome extends StatelessWidget {
 
       activities.add(
         _HomeActivity(
+          id: post.id,
           step: 2,
           title: post.title,
           detail: [
@@ -245,6 +250,7 @@ class _YouthHome extends StatelessWidget {
 
       activities.add(
         _HomeActivity(
+          id: opportunity.id,
           step: opportunity.step,
           title: opportunity.title,
           detail: [
@@ -263,7 +269,15 @@ class _YouthHome extends StatelessWidget {
       );
     }
 
-    return activities;
+    // STEP 1은 todo로 변경되어 위의 미션 수집 단계에서 제외됩니다.
+    // STEP 2~4는 활동을 그만둔 경우 참여 활동 목록에서 제외합니다.
+    return activities.where((activity) {
+      return !state.isActivityStopped(
+        step: activity.step,
+        activityId: activity.id,
+      );
+    }).toList();
+
   }
 
 
@@ -612,17 +626,15 @@ class _ActivityRow extends StatelessWidget {
   });
 
   final _HomeActivity activity;
-
-  // 기존 호출부와 호환되도록 유지합니다.
-  // 현재 디자인처럼 모든 활동에 STEP 배지를 표시합니다.
   final bool showStep;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    final row = Padding(
       padding: const EdgeInsets.symmetric(vertical: 12),
       child: Row(
         children: [
+          // 완료 / 완료 취소 버튼
           IconButton(
             tooltip: activity.done ? '완료 취소' : '활동 완료',
             onPressed: activity.onToggleDone,
@@ -701,8 +713,28 @@ class _ActivityRow extends StatelessWidget {
         ],
       ),
     );
+
+    // 완료한 활동은 스와이프 기능 없이 표시합니다.
+    // 완료 취소 버튼은 계속 사용할 수 있습니다.
+    if (activity.done) {
+      return row;
+    }
+
+    // 미완료 활동만 스와이프하여 그만둘 수 있습니다.
+    return _SwipeableHomeActivity(
+      key: ValueKey('${activity.step}:${activity.id}'),
+      onDelete: () {
+        context.read<AppState>().stopActivity(
+              step: activity.step,
+              activityId: activity.id,
+            );
+      },
+      child: row,
+    );
   }
 }
+
+
 
 class _InstitutionHome extends StatelessWidget {
   const _InstitutionHome();
@@ -769,6 +801,153 @@ class _InstitutionHome extends StatelessWidget {
           ),
         const TodoBox('기관 홈: 신청자 수, 검수 상태 등 정해지면 추가'),
       ],
+    );
+  }
+}
+
+/// 왼쪽으로 밀면 삭제 버튼을 표시하고,
+/// 오른쪽으로 밀면 원래 위치로 돌아옵니다.
+class _SwipeableHomeActivity extends StatefulWidget {
+  const _SwipeableHomeActivity({
+    super.key,
+    required this.child,
+    required this.onDelete,
+  });
+
+  final Widget child;
+  final VoidCallback onDelete;
+
+  @override
+  State<_SwipeableHomeActivity> createState() =>
+      _SwipeableHomeActivityState();
+}
+
+class _SwipeableHomeActivityState
+    extends State<_SwipeableHomeActivity> {
+  // 기존 80 → 56으로 줄여 덜 밀리도록 합니다.
+  static const double _actionWidth = 56;
+  static const double _buttonSize = 40;
+
+  double _offset = 0;
+  bool _dragging = false;
+
+  void _handleDragUpdate(DragUpdateDetails details) {
+    setState(() {
+      _offset = (_offset + details.delta.dx)
+          .clamp(-_actionWidth, 0.0)
+          .toDouble();
+    });
+  }
+
+  void _handleDragEnd(DragEndDetails details) {
+    final velocity = details.velocity.pixelsPerSecond.dx;
+
+    final bool shouldOpen;
+
+    if (velocity < -250) {
+      shouldOpen = true;
+    } else if (velocity > 250) {
+      shouldOpen = false;
+    } else {
+      shouldOpen = _offset <= -_actionWidth / 2;
+    }
+
+    _settle(shouldOpen);
+  }
+
+  void _handleDragCancel() {
+    _settle(_offset <= -_actionWidth / 2);
+  }
+
+  void _settle(bool open) {
+    setState(() {
+      _dragging = false;
+      _offset = open ? -_actionWidth : 0;
+    });
+  }
+
+  
+  @override
+  Widget build(BuildContext context) {
+    final reveal = (-_offset / _actionWidth)
+        .clamp(0.0, 1.0)
+        .toDouble();
+
+    return ClipRect(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onHorizontalDragStart: (_) {
+          setState(() {
+            _dragging = true;
+          });
+        },
+        onHorizontalDragUpdate: _handleDragUpdate,
+        onHorizontalDragEnd: _handleDragEnd,
+        onHorizontalDragCancel: _handleDragCancel,
+        child: Stack(
+          alignment: Alignment.centerLeft,
+          children: [
+            // 활동만 왼쪽으로 이동합니다.
+            AnimatedContainer(
+              duration: _dragging
+                  ? Duration.zero
+                  : const Duration(milliseconds: 180),
+              curve: Curves.easeOut,
+              transform: Matrix4.translationValues(
+                _offset,
+                0,
+                0,
+              ),
+              child: widget.child,
+            ),
+
+            // 쓰레기통은 기존처럼 오른쪽 끝에 고정합니다.
+            Positioned(
+              top: 0,
+              bottom: 0,
+              right: 0,
+              width: _buttonSize,
+              child: IgnorePointer(
+                ignoring: _dragging || reveal < 0.99,
+                child: AnimatedOpacity(
+                  opacity: reveal,
+                  duration: _dragging
+                      ? Duration.zero
+                      : const Duration(milliseconds: 180),
+                  child: Center(
+                    child: Tooltip(
+                      message: '활동 그만두기',
+                      child: SizedBox(
+                        width: _buttonSize,
+                        height: _buttonSize,
+                        child: Material(
+                          color: AppColors.red,
+                          shape: const CircleBorder(),
+                          clipBehavior: Clip.antiAlias,
+                          child: InkWell(
+                            customBorder: const CircleBorder(),
+                            onTap: widget.onDelete,
+                            child: const Center(
+                              child: Icon(
+                                Icons.delete_outline,
+                                color: AppColors.paper,
+                                size: 23,
+                                semanticLabel: '활동 그만두기',
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            
+          ],
+        ),
+      ),
     );
   }
 }
