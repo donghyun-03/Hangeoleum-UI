@@ -10,6 +10,7 @@ import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
 import 'record_edit_screen.dart';
+import 'record_report_screen.dart';
 
 class RecordListScreen extends StatefulWidget {
   const RecordListScreen({super.key});
@@ -62,7 +63,10 @@ class _RecordListScreenState extends State<RecordListScreen> {
                   child: AppButton(
                     label: '경험 리포트·포트폴리오로 만들기',
                     expand: false,
-                    onPressed: () => AppNav.toComingSoon(context, '경험 리포트 · 포트폴리오'),
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(builder: (_) => const RecordReportScreen()),
+                    ),
                   ),
                 ),
               ),
