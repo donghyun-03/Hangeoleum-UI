@@ -75,7 +75,6 @@ class HomeScreen extends StatelessWidget {
                   onTap: () {
                     Navigator.pushNamed(context, Routes.profile);
                   },
-
                   child: Row(
                     children: [
                       Avatar(
@@ -107,10 +106,9 @@ class HomeScreen extends StatelessWidget {
                   small: true,
                   expand: false,
                   variant: ButtonVariant.outline,
-                  onPressed: () => Navigator.pushNamed(
-                    context,
-                    Routes.recordList,
-                  ),
+                  onPressed: () {
+                    Navigator.pushNamed(context, Routes.recordList);
+                  },
                 ),
               ],
             ],
@@ -174,6 +172,7 @@ class _YouthHome extends StatelessWidget {
 
     // STEP 2: 승인된 팀 신청만 활동으로 표시.
     // 대기·거절은 실제 참여가 아니므로 포함하지 않습니다.
+    // 현재는 팀 활동 완료 데이터가 없어 진행 중으로 유지합니다.
     for (final post in mockTeamPosts) {
       final application = state.applicationFor(post.id);
 
@@ -211,6 +210,8 @@ class _YouthHome extends StatelessWidget {
         continue;
       }
 
+      // 지원 여부와 활동 완료 여부는 구분합니다.
+      // 현재는 완료 데이터가 없어 진행 중으로 유지합니다.
       activities.add(
         _HomeActivity(
           step: opportunity.step,
@@ -227,7 +228,6 @@ class _YouthHome extends StatelessWidget {
     return activities;
   }
 
- 
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
@@ -236,31 +236,26 @@ class _YouthHome extends StatelessWidget {
 
     final activities = _collectActivities(state);
 
+    // 현재 STEP: 진행 중 활동을 먼저, 완료 활동을 나중에 표시합니다.
     final currentActivities = [
-  ...activities.where(
-    (activity) =>
-        activity.step == currentStep && !activity.done,
-  ),
-  ...activities.where(
-    (activity) =>
-        activity.step == currentStep && activity.done,
-  ),
-];
-
+      ...activities.where(
+        (activity) => activity.step == currentStep && !activity.done,
+      ),
+      ...activities.where(
+        (activity) => activity.step == currentStep && activity.done,
+      ),
+    ];
 
     // 현재 STEP이 아닌 활동 중 미완료 활동만 표시합니다.
-    // STEP이 바뀌면 이전 단계의 미완료 활동이 자동으로 여기에 포함됩니다.
+    // STEP이 바뀌면 이전 단계의 미완료 활동이 여기에 포함됩니다.
     final otherActivities = activities
         .where(
-          (activity) =>
-              activity.step != currentStep &&
-              !activity.done,
+          (activity) => activity.step != currentStep && !activity.done,
         )
         .toList()
       ..sort((a, b) {
         final stepOrder = a.step.compareTo(b.step);
 
-        // 같은 STEP에서는 제목순으로 정렬합니다.
         return stepOrder != 0
             ? stepOrder
             : a.title.compareTo(b.title);
@@ -270,153 +265,272 @@ class _YouthHome extends StatelessWidget {
         .where((activity) => activity.done)
         .length;
 
+    // 기존 AppState.advanceHomeStep()과 동일한 최소 완료 기준입니다.
     final requiredCount = currentStep == 1 ? 3 : 1;
+
+    // 최소 완료 개수를 충족하고 다음 STEP이 있을 때만 활성화합니다.
+    final canGoNext = currentStep >= 1 &&
+        currentStep < 4 &&
+        doneCount >= requiredCount;
 
     final otherCount = otherActivities.length;
 
+    final nextStepTooltip = currentStep >= 4
+        ? '마지막 단계입니다'
+        : canGoNext
+            ? 'STEP ${currentStep + 1}로 이동'
+            : '활동을 $requiredCount개 완료하면 이동할 수 있어요';
+
     return Column(
-  crossAxisAlignment: CrossAxisAlignment.stretch,
-  children: [
-    // 요약과 현재 활동을 하나의 카드에 표시합니다.
-    AppCard(
-      padding: EdgeInsets.zero,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // 상단: 지금 나의 단계와 완료 현황.
-          Material(
-            color: AppColors.soft,
-            borderRadius: BorderRadius.vertical(
-              top: Radius.circular(AppRadius.md),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // 요약과 현재 활동을 하나의 카드에 표시합니다.
+        AppCard(
+          padding: EdgeInsets.zero,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // 상단: 지금 나의 단계와 완료 현황.
+              Material(
+                color: AppColors.soft,
+                borderRadius: BorderRadius.vertical(
+                  top: Radius.circular(AppRadius.md),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: () {
+                    context.read<MainTabs>().go(
+                          MainTab.step,
+                          step: currentStep,
+                        );
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '지금 나의 단계',
+                          style: AppText.caption,
+                        ),
+                        Text(
+                          'STEP $currentStep · ${info?.title ?? ''}',
+                          style: AppText.h2.copyWith(fontSize: 17),
+                        ),
+                        if (info != null)
+                          Text(
+                            info.desc,
+                            style: AppText.small.copyWith(fontSize: 12),
+                          ),
+                        const SizedBox(height: 10),
+                        // 완료 문구와 선은 왼쪽에,
+                        // 다음 버튼은 오른쪽에서 선의 중앙에 맞춰 표시합니다.
+                        Stack(
+                          children: [
+                            Padding(
+                              // 버튼 아래쪽이 영역 밖으로 벗어나지 않도록 공간을 확보합니다.
+                              // 버튼 40 / 2 - 진행률 선 6 / 2 = 17
+                              padding: const EdgeInsets.only(
+                                right: 52, // 버튼 40 + 선과 버튼 사이 간격 12
+                                bottom: 17,
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '활동 $doneCount/$requiredCount 완료',
+                                    style: AppText.bodyBold.copyWith(
+                                      fontSize: 13,
+                                      color: AppColors.ink,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  SizedBox(
+                                    height: 6,
+                                    child: ProgressLine(
+                                      value: doneCount > requiredCount
+                                          ? requiredCount
+                                          : doneCount,
+                                      total: requiredCount,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Positioned(
+                              right: 0,
+                              bottom: 0,
+                              child: _NextStepButton(
+                                isActive: canGoNext,
+                                size: 40,
+                                tooltip: nextStepTooltip,
+                                onTap: () {
+                                  final advanced = context
+                                      .read<AppState>()
+                                      .advanceHomeStep(
+                                        expectedStep: currentStep,
+                                        completedCount: doneCount,
+                                      );
+
+                                  if (!advanced) return;
+
+                                  context.read<MainTabs>().selectStep(
+                                        currentStep + 1,
+                                      );
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const Divider(
+                height: 1,
+                thickness: 1,
+                color: AppColors.line,
+              ),
+
+              // 하단: 현재 활동 또는 활동 없음 안내.
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 4,
+                ),
+                child: currentActivities.isEmpty
+                    ? Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        child: Text(
+                          '현재 STEP에 표시할 활동이 없어요.',
+                          style: AppText.small,
+                        ),
+                      )
+                    : Column(
+                        children: [
+                          for (
+                            var index = 0;
+                            index < currentActivities.length;
+                            index++
+                          ) ...[
+                            if (index > 0) const Divider(),
+                            _ActivityRow(
+                              activity: currentActivities[index],
+                              showStep: false,
+                            ),
+                          ],
+                        ],
+                      ),
+              ),
+            ],
+          ),
+        ),
+
+        // 기존 활동 수정 버튼을 유지합니다.
+        AppButton(
+          label: '활동 수정',
+          icon: Icons.edit_outlined,
+          variant: ButtonVariant.ghost,
+          onPressed: () {
+            Navigator.pushNamed(context, Routes.missionEdit);
+          },
+        ),
+        const SizedBox(height: 24),
+        Row(
+          children: [
+            Text(
+              '그 외 진행 중 $otherCount',
+              style: AppText.bodyBold,
             ),
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              onTap: () {
-                context.read<MainTabs>().go(
-                      MainTab.step,
-                      step: currentStep,
-                    );
-              },
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '지금 나의 단계',
-                      style: AppText.caption,
-                    ),
-                    Text(
-                      'STEP $currentStep · ${info?.title ?? ''}',
-                      style: AppText.h2.copyWith(fontSize: 17),
-                    ),
-                    if (info != null)
-                      Text(
-                        info.desc,
-                        style: AppText.small.copyWith(fontSize: 12),
-                      ),
-                    const SizedBox(height: 10),
-                    Text(
-                      '활동 $doneCount/$requiredCount 완료',
-                      style: AppText.bodyBold.copyWith(
-                        fontSize: 13,
-                        color: AppColors.ink,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    ProgressLine(
-                      // 최소 완료 수 이상이면 진행률은 100%로 유지합니다.
-                      value: doneCount > requiredCount
-                          ? requiredCount
-                          : doneCount,
-                      total: requiredCount,
-                    ),
-                    const SizedBox(height: 12),
-                  ],
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Divider(color: AppColors.line),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _ActivityList(
+          activities: otherActivities,
+          showStep: true,
+          emptyMessage: '다른 STEP에 표시할 활동이 없어요.',
+        ),
+      ],
+    );
+  }
+}
+
+/// 홈 전용 다음 STEP 버튼.
+/// 비활성 상태에서도 터치 효과는 표시하지만 단계 이동은 막습니다.
+class _NextStepButton extends StatelessWidget {
+  const _NextStepButton({
+    required this.isActive,
+    required this.onTap,
+    required this.tooltip,
+    this.size = 40,
+  });
+
+  final bool isActive;
+  final VoidCallback onTap;
+  final String tooltip;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final circleColor = isActive
+        ? AppColors.green
+        : AppColors.line;
+
+    final arrowColor = isActive
+        ? AppColors.paper
+        : AppColors.subtle;
+
+    final effectColor = isActive
+        ? AppColors.paper
+        : AppColors.subtle;
+
+    return Tooltip(
+      message: tooltip,
+      child: Semantics(
+        button: true,
+        enabled: isActive,
+        label: tooltip,
+        onTap: isActive ? onTap : null,
+        child: ExcludeSemantics(
+          child: SizedBox(
+            width: size,
+            height: size,
+            child: Material(
+              color: circleColor,
+              shape: const CircleBorder(),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                splashColor: effectColor.withValues(alpha: 0.24),
+                highlightColor: effectColor.withValues(alpha: 0.12),
+
+                // null로 설정하지 않아 비활성 상태에도
+                // 터치 효과를 보여주고 상위 카드의 탭을 막습니다.
+                onTap: () {
+                  if (!isActive) return;
+                  onTap();
+                },
+                child: Center(
+                  child: Icon(
+                    Icons.keyboard_double_arrow_right,
+                    color: arrowColor,
+                    size: size * 0.55,
+                  ),
                 ),
               ),
             ),
           ),
-
-          const Divider(
-            height: 1,
-            thickness: 1,
-            color: AppColors.line,
-          ),
-
-          // 하단: 현재 활동 또는 활동 없음 안내.
-          // _ActivityList를 쓰지 않아 카드가 중첩되지 않습니다.
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 4,
-            ),
-            child: currentActivities.isEmpty
-                ? Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    child: Text(
-                      '현재 STEP에 표시할 활동이 없어요.',
-                      style: AppText.small,
-                    ),
-                  )
-                : Column(
-                    children: [
-                      for (
-                        var index = 0;
-                        index < currentActivities.length;
-                        index++
-                      ) ...[
-                        if (index > 0) const Divider(),
-                        _ActivityRow(
-                          activity: currentActivities[index],
-                          showStep: false,
-                        ),
-                      ],
-                    ],
-                  ),
-          ),
-        ],
+        ),
       ),
-    ),
-
-    // 활동 수정 버튼은 잠시 숨깁니다.
-    
-    AppButton(
-      label: '활동 수정',
-      icon: Icons.edit_outlined,
-      variant: ButtonVariant.ghost,
-      onPressed: () {
-        Navigator.pushNamed(context, Routes.missionEdit);
-      },
-    ),
-    
-
-    const SizedBox(height: 24),
-    Row(
-      children: [
-        Text(
-          '그 외 진행 중 $otherCount',
-          style: AppText.bodyBold,
-        ),
-        const SizedBox(width: 12),
-        const Expanded(
-          child: Divider(color: AppColors.line),
-        ),
-      ],
-    ),
-    const SizedBox(height: 12),
-
-    // 다른 STEP 활동 목록은 기존대로 유지합니다.
-    _ActivityList(
-      activities: otherActivities,
-      showStep: true,
-      emptyMessage: '다른 STEP에 표시할 활동이 없어요.',
-    ),
-  ],
-);
-
+    );
   }
 }
+
 
 class _ActivityList extends StatelessWidget {
   const _ActivityList({
@@ -434,7 +548,10 @@ class _ActivityList extends StatelessWidget {
     if (activities.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 16),
-        child: Text(emptyMessage, style: AppText.small),
+        child: Text(
+          emptyMessage,
+          style: AppText.small,
+        ),
       );
     }
 
@@ -481,7 +598,9 @@ class _ActivityRow extends StatelessWidget {
                 ? Icons.check_circle_outline
                 : Icons.radio_button_unchecked,
             size: 20,
-            color: activity.done ? AppColors.dim : AppColors.green,
+            color: activity.done
+                ? AppColors.dim
+                : AppColors.green,
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -499,7 +618,7 @@ class _ActivityRow extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
 
-                // 활동 시간·분류·마감일 등 설명 뒤에 STEP 표시.
+                // 활동 설명 뒤에 STEP 배지를 표시합니다.
                 Wrap(
                   spacing: 6,
                   runSpacing: 4,
@@ -535,14 +654,15 @@ class _ActivityRow extends StatelessWidget {
           const SizedBox(width: 8),
           TagBadge(
             activity.statusLabel,
-            tone: activity.done ? BadgeTone.gray : BadgeTone.green,
+            tone: activity.done
+                ? BadgeTone.gray
+                : BadgeTone.green,
           ),
         ],
       ),
     );
   }
 }
-
 
 class _InstitutionHome extends StatelessWidget {
   const _InstitutionHome();
@@ -558,7 +678,10 @@ class _InstitutionHome extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('활동기관', style: AppText.caption),
+              Text(
+                '활동기관',
+                style: AppText.caption,
+              ),
               const SizedBox(height: 4),
               Text(
                 '등록한 프로그램 ${programs.length}개',
@@ -590,7 +713,10 @@ class _InstitutionHome extends StatelessWidget {
                   tone: BadgeTone.gray,
                 ),
                 const SizedBox(height: 6),
-                Text(program.title, style: AppText.bodyBold),
+                Text(
+                  program.title,
+                  style: AppText.bodyBold,
+                ),
                 Text(
                   [
                     if (program.region.isNotEmpty) program.region,
