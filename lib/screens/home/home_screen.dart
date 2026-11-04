@@ -121,13 +121,13 @@ class HomeScreen extends StatelessWidget {
 }
 
 /// 홈 표시용 데이터입니다.
-/// 전역 모델이나 원본 Mission을 변경하지 않습니다.
 class _HomeActivity {
   const _HomeActivity({
     required this.step,
     required this.title,
     required this.detail,
     required this.statusLabel,
+    required this.onToggleDone,
     this.done = false,
   });
 
@@ -136,15 +136,17 @@ class _HomeActivity {
   final String detail;
   final String statusLabel;
   final bool done;
+  final VoidCallback onToggleDone;
 }
+
 
 class _YouthHome extends StatelessWidget {
   const _YouthHome();
 
-  List<_HomeActivity> _collectActivities(AppState state) {
+    List<_HomeActivity> _collectActivities(AppState state) {
     final activities = <_HomeActivity>[];
 
-    // STEP 1: 시작했거나 완료한 미션.
+    // STEP 1: 기존 미션 상태로 완료 여부를 관리합니다.
     for (final mission in state.missions) {
       if (mission.status == MissionStatus.todo) continue;
 
@@ -162,13 +164,28 @@ class _YouthHome extends StatelessWidget {
           ].join(' · '),
           statusLabel: done ? '완료' : '진행 중',
           done: done,
+          onToggleDone: () {
+            state.updateMission(
+              mission.id,
+              (currentMission) {
+                if (currentMission.status == MissionStatus.todo) {
+                  return currentMission;
+                }
+
+                return currentMission.copyWith(
+                  status: currentMission.status == MissionStatus.done
+                      ? MissionStatus.doing
+                      : MissionStatus.done,
+                );
+              },
+            );
+          },
         ),
       );
     }
 
-    // STEP 2: 승인된 팀 신청만 활동으로 표시.
-    // 대기·거절은 실제 참여가 아니므로 포함하지 않습니다.
-    // 현재는 팀 활동 완료 데이터가 없어 진행 중으로 유지합니다.
+    // STEP 2: 신청한 프로젝트가 승인되면 홈에 표시합니다.
+    // 승인 여부와 활동 완료 여부는 별도로 관리합니다.
     for (final post in mockTeamPosts) {
       final application = state.applicationFor(post.id);
 
@@ -176,6 +193,11 @@ class _YouthHome extends StatelessWidget {
           application.status != ApplicationStatus.accepted) {
         continue;
       }
+
+      final done = state.isHomeActivityDone(
+        step: 2,
+        activityId: post.id,
+      );
 
       activities.add(
         _HomeActivity(
@@ -187,13 +209,23 @@ class _YouthHome extends StatelessWidget {
             '주 ${post.perWeek}회',
             post.mode,
           ].join(' · '),
-          statusLabel: '진행 중',
+          statusLabel: done ? '완료' : '진행 중',
+          done: done,
+          onToggleDone: () {
+            state.toggleHomeActivityDone(
+              step: 2,
+              activityId: post.id,
+            );
+          },
         ),
       );
     }
 
-    // STEP 3·4: 지원 여부가 기록된 공고.
-    // 스크랩만 한 항목은 포함하지 않습니다.
+    // STEP 3·4 홈 추가 조건:
+    // 지금은 기존의 "지원한 공고" 표시 방식을 유지합니다.
+    // TODO: 상세 화면의 + 버튼 구현 시, 이 필터만
+    // "홈에 추가한 프로그램 ID 목록"을 읽도록 변경합니다.
+    // 아래의 완료 상태 조회/토글 로직은 그대로 사용할 수 있습니다.
     final appliedIds = state.scraps
         .where((scrap) => scrap.applied)
         .map((scrap) => scrap.opportunityId)
@@ -206,8 +238,11 @@ class _YouthHome extends StatelessWidget {
         continue;
       }
 
-      // 지원 여부와 활동 완료 여부는 구분합니다.
-      // 현재는 완료 데이터가 없어 진행 중으로 유지합니다.
+      final done = state.isHomeActivityDone(
+        step: opportunity.step,
+        activityId: opportunity.id,
+      );
+
       activities.add(
         _HomeActivity(
           step: opportunity.step,
@@ -216,13 +251,21 @@ class _YouthHome extends StatelessWidget {
             opportunity.org,
             if (opportunity.region.isNotEmpty) opportunity.region,
           ].join(' · '),
-          statusLabel: '진행 중',
+          statusLabel: done ? '완료' : '진행 중',
+          done: done,
+          onToggleDone: () {
+            state.toggleHomeActivityDone(
+              step: opportunity.step,
+              activityId: opportunity.id,
+            );
+          },
         ),
       );
     }
 
     return activities;
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -580,7 +623,7 @@ class _ActivityRow extends StatelessWidget {
   final _HomeActivity activity;
 
   // 기존 호출부와 호환되도록 유지합니다.
-  // STEP 배지는 현재 활동과 다른 STEP 활동 모두 표시합니다.
+  // 현재 디자인처럼 모든 활동에 STEP 배지를 표시합니다.
   final bool showStep;
 
   @override
@@ -589,16 +632,28 @@ class _ActivityRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 12),
       child: Row(
         children: [
-          Icon(
-            activity.done
-                ? Icons.check_circle_outline
-                : Icons.radio_button_unchecked,
-            size: 20,
-            color: activity.done
-                ? AppColors.dim
-                : AppColors.green,
+          IconButton(
+            tooltip: activity.done ? '완료 취소' : '활동 완료',
+            onPressed: activity.onToggleDone,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints.tightFor(
+              width: 40,
+              height: 40,
+            ),
+            style: IconButton.styleFrom(
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              shape: const CircleBorder(),
+            ),
+            icon: Icon(
+              activity.done
+                  ? Icons.check_circle_outline
+                  : Icons.radio_button_unchecked,
+              size: 20,
+              color: activity.done
+                  ? AppColors.dim
+                  : AppColors.green,
+            ),
           ),
-          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -613,8 +668,6 @@ class _ActivityRow extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 4),
-
-                // 활동 설명 뒤에 STEP 배지를 표시합니다.
                 Wrap(
                   spacing: 6,
                   runSpacing: 4,

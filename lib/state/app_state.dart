@@ -74,6 +74,7 @@ class AppState extends ChangeNotifier {
     _missions[i] = change(_missions[i]);
     notifyListeners();
   }
+  
 
   void startMission(String id) =>
       updateMission(id, (m) => m.status == MissionStatus.todo ? m.copyWith(status: MissionStatus.doing) : m);
@@ -244,6 +245,40 @@ class AppState extends ChangeNotifier {
     for (var i = 0; i < _notices.length; i++) {
       if (id == null || _notices[i].id == id) _notices[i] = _notices[i].markRead();
     }
+    notifyListeners();
+  }
+
+  // ───────────────────────── 홈 활동 완료 상태 (STEP 2~4)
+
+  // STEP별로 완료한 활동 ID를 저장합니다.
+  // 목록에 ID가 있으면 완료, 없으면 미완료입니다.
+  final Map<int, Set<String>> _completedHomeActivityIds = {
+    2: <String>{},
+    3: <String>{},
+    4: <String>{},
+  };
+
+  bool isHomeActivityDone({
+    required int step,
+    required String activityId,
+  }) {
+    return _completedHomeActivityIds[step]?.contains(activityId) ?? false;
+  }
+
+  void toggleHomeActivityDone({
+    required int step,
+    required String activityId,
+  }) {
+    final completedIds = _completedHomeActivityIds[step];
+
+    if (completedIds == null || activityId.isEmpty) return;
+
+    if (completedIds.contains(activityId)) {
+      completedIds.remove(activityId);
+    } else {
+      completedIds.add(activityId);
+    }
+
     notifyListeners();
   }
 }
