@@ -89,7 +89,7 @@ class _ApplicationStatusScreenState extends State<ApplicationStatusScreen> {
           for (final (s, o) in shown) _ApplyCard(scrap: s, o: o),
           if (items.isNotEmpty) ...[
             const SizedBox(height: 6),
-            Text("스크랩 탭에서 '지원했어요'를 누른 공고가 여기에 모여요.", style: AppText.caption, textAlign: TextAlign.center),
+            Text("스크랩 탭에서 '지원했어요'를 누른 공고가 여기에 모여요. 스크랩을 지워도 지원 내역은 남아요.", style: AppText.caption, textAlign: TextAlign.center),
           ],
         ],
       ),
@@ -289,7 +289,7 @@ class _EditSheetState extends State<_EditSheet> {
           child: TextButton(
             onPressed: () {
               state.setApplied(o.id, false);
-              _close('지원현황에서 뺐어요. 스크랩은 남아 있어요');
+              _close(widget.scrap.bookmarked ? '지원현황에서 뺐어요. 스크랩은 남아 있어요' : '지원현황에서 뺐어요');
             },
             child: const Text('지원 취소 (지원현황에서 빼기)', style: TextStyle(fontSize: 12.5, color: AppColors.subtle)),
           ),

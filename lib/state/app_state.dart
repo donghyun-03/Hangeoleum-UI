@@ -176,8 +176,12 @@ class AppState extends ChangeNotifier {
   }
 
   // ───────────────────────── 스크랩 · 지원 현황
+  // 스크랩과 지원 내역을 한 목록(_scraps)으로 관리합니다.
+  // 지원한 공고는 스크랩을 지워도 지원현황에 남아야 해서, 목록에서 빼지 않고 bookmarked 만 false 로 바꿉니다.
   final List<Scrap> _scraps = [...mockScraps];
-  List<Scrap> get scraps => List.unmodifiable(_scraps);
+
+  /// 스크랩 탭에 보이는 항목 (북마크한 것만)
+  List<Scrap> get scraps => List.unmodifiable(_scraps.where((s) => s.bookmarked));
 
   /// 지원한 공고만 (취업 지원현황 화면). 최근 지원 순
   List<Scrap> get appliedScraps {
@@ -186,13 +190,22 @@ class AppState extends ChangeNotifier {
     return v;
   }
 
-  bool isScrapped(String opportunityId) => _scraps.any((s) => s.opportunityId == opportunityId);
+  bool isScrapped(String opportunityId) => _scraps.any((s) => s.opportunityId == opportunityId && s.bookmarked);
 
+  /// 지원한 공고인지 (스크랩을 지웠어도 지원현황에 있으면 true)
+  bool isApplied(String opportunityId) => _scraps.any((s) => s.opportunityId == opportunityId && s.applied);
+
+  /// 북마크 켜기/끄기. 지원한 공고는 스크랩만 지우고 지원현황에는 남깁니다.
   void toggleScrap(String opportunityId) {
-    if (isScrapped(opportunityId)) {
-      _scraps.removeWhere((s) => s.opportunityId == opportunityId);
-    } else {
+    final i = _scraps.indexWhere((s) => s.opportunityId == opportunityId);
+    if (i < 0) {
       _scraps.insert(0, Scrap(opportunityId: opportunityId, scrappedAt: DateTime.now()));
+    } else if (!_scraps[i].bookmarked) {
+      _scraps[i] = _scraps[i].copyWith(bookmarked: true);
+    } else if (_scraps[i].applied) {
+      _scraps[i] = _scraps[i].copyWith(bookmarked: false);
+    } else {
+      _scraps.removeAt(i);
     }
     notifyListeners();
   }
@@ -202,9 +215,14 @@ class AppState extends ChangeNotifier {
     final i = _scraps.indexWhere((s) => s.opportunityId == opportunityId);
     if (i < 0) return;
     final s = _scraps[i];
-    _scraps[i] = applied
-        ? s.copyWith(applied: true, appliedAt: s.appliedAt ?? DateTime.now(), stage: s.stage ?? ApplyStage.applied)
-        : s.copyWith(applied: false, clearApply: true);
+    if (!applied && !s.bookmarked) {
+      // 스크랩을 지운 뒤 지원까지 취소하면 남길 이유가 없음
+      _scraps.removeAt(i);
+    } else {
+      _scraps[i] = applied
+          ? s.copyWith(applied: true, appliedAt: s.appliedAt ?? DateTime.now(), stage: s.stage ?? ApplyStage.applied)
+          : s.copyWith(applied: false, clearApply: true);
+    }
     notifyListeners();
   }
 

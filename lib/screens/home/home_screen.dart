@@ -233,11 +233,11 @@ class _YouthHome extends StatelessWidget {
 
     // STEP 3·4 홈 추가 조건:
     // 지금은 기존의 "지원한 공고" 표시 방식을 유지합니다.
+    // 지원한 공고는 스크랩을 지웠어도 지원현황에 남으므로 appliedScraps 로 읽습니다.
     // TODO: 상세 화면의 + 버튼 구현 시, 이 필터만
     // "홈에 추가한 프로그램 ID 목록"을 읽도록 변경합니다.
     // 아래의 완료 상태 조회/토글 로직은 그대로 사용할 수 있습니다.
-    final appliedIds = state.scraps
-        .where((scrap) => scrap.applied)
+    final appliedIds = state.appliedScraps
         .map((scrap) => scrap.opportunityId)
         .toSet();
 
@@ -782,6 +782,7 @@ class _InstitutionHome extends StatelessWidget {
         ),
         for (final program in programs)
           AppCard(
+            onTap: () => AppNav.toProgramDetail(context, program.id),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

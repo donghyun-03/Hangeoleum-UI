@@ -160,7 +160,7 @@ class _AllScreenState extends State<AllScreen> {
                       borderRadius: BorderRadius.circular(20),
                       child: InkWell(
                         borderRadius: BorderRadius.circular(20),
-                        onTap: () => AppNav.toComingSoon(context, o.title),
+                        onTap: () => AppNav.toProgramDetail(context, o.id),
                         child: Padding(
                           padding: const EdgeInsets.all(12),
                           child: Column(
@@ -209,7 +209,7 @@ class _AllScreenState extends State<AllScreen> {
             SectionTitle('활동 · 채용', aside: '${results.length}건'),
             for (final o in results)
               AppCard(
-                onTap: () => AppNav.toComingSoon(context, o.title),
+                onTap: () => AppNav.toProgramDetail(context, o.id),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [

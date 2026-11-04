@@ -40,13 +40,13 @@ lib/
     onboarding/                 diagnosis_screen (AI 대화 Q1~Q4)
     shell/                      main_shell (하단 탭: 홈 · STEP · 스크랩 · 전체)
     home/                       home_screen
-    mission/                    mission_edit_screen            ← 추가 기능 2
     record/                     record_list / record_write / record_result  ← 추가 기능 1 (첨부)
     step/                       step_screen (STEP 1~4 선택·정렬)
                                 step1_missions / step2_connect / step3_challenge / step4_job
     scrap/                      scrap_screen                   ← 추가 기능 3
     team/                       member_profile_screen, team_apply_screen, team_post_write_screen
     application/                application_status_screen (취업 지원현황)
+    program/                    program_detail_screen (STEP 3·4 프로그램 상세, 온통청년 v2 스키마)
     institution/                program_register_screen        ← 추가 기능 6
     notification/               notification_screen
     profile/                    profile_screen (내 정보)
@@ -68,14 +68,17 @@ test/widget_test.dart           기본 흐름 테스트
 | 홈 | 이름(프로필) | 활동 기록 |
 | 홈 | 기록하기 | 기록 작성 → AI 정리 결과 → 저장 → 활동 기록 |
 | 홈 | 미션 수정 | 미션 수정 |
-| 홈 | 종 아이콘 | 알림 |
+| 홈 | 종 아이콘 | 알림 → 마감 임박은 홈, STEP 1 알림은 STEP 1, 나머지는 프로그램 상세 |
 | STEP 2 | 팀 카드 / 팀원 아바타 | 팀 신청(모집 글 상세) / 팀원 프로필 |
 | STEP 2 | 글쓰기 | 팀원 모집 글쓰기 → '내가 쓴 글' 탭 |
 | STEP 2 | 팀 신청 완료 | '내가 신청한 글' 탭 |
+| STEP 3·4 · 스크랩 · 전체 | 공고 카드 | 프로그램 상세 (지원 내용·대상·신청 방법·기간·출처) |
+| 프로그램 상세 | 북마크 / 신청하러 가기 | 스크랩 탭에 추가 / 신청 링크 복사 |
 | STEP 3·4 | 북마크 | 스크랩 탭에 추가 |
 | STEP 4 | 오른쪽 위 지원현황 | 취업 지원현황 (단계·메모 관리) |
-| 스크랩 | 지원했어요 | 취업 지원현황에 추가 |
+| 스크랩 | 지원했어요 | 취업 지원현황에 추가 (지원한 공고는 스크랩을 지워도 지원현황에 남음) |
 | STEP 3·4 (기관) | 글쓰기 | 프로그램 등록 |
+| 홈 (기관) | 등록한 프로그램 카드 | 프로그램 상세 (검수 전) |
 | 전체 | 서비스 목록 | 각 화면 |
 
 ## 추가 기능 (디자인 시안 대비)
@@ -83,13 +86,41 @@ test/widget_test.dart           기본 흐름 테스트
 | # | 내용 | 위치 | 상태 |
 | --- | --- | --- | --- |
 | 1 | 기록 작성 시 파일·깃허브 링크 첨부 | `screens/record/record_write_screen.dart` | 골조 완료, 업로드 API 필요 |
-| 2 | 진행 중 미션 마감 시 변경 (미션 수정 버튼) | `home/home_screen.dart` → `mission/mission_edit_screen.dart` | 골조 완료 |
+| 2 | 진행 중 미션 마감 시 변경 (미션 수정 버튼) | — | 제거됨 (#11, 홈에서 완료·취소·삭제로 대체) |
 | 3 | 활동 스크랩 + 지원했는지/안 했는지 | `widgets/opportunity_card.dart`(북마크) → `scrap/scrap_screen.dart` | 골조 완료 |
 | 4 | STEP 2 검색창 | `step/step2_connect.dart` | 골조 완료 |
 | 5 | STEP 4 필터 (지역·고용형태·경력·직무) | `step/step4_job.dart` | 골조 완료 |
 | 6 | 팀원 프로필 · 팀 신청 · 프로그램 등록(기관) | `team/`, `institution/` | 디자인 없음 → 임시 레이아웃 |
 
 화면 안의 노란 **TODO 박스**와 코드의 `// TODO(...)` 주석이 남은 작업입니다.
+
+## 프로그램 · 정책 데이터 (온통청년)
+
+STEP 3 · 도전 목록과 알림은 **온통청년 실제 정책**입니다. 나머지(STEP 1·2·4, 기록 등)는 샘플이에요.
+
+- `models.dart` 의 `ProgramDetail` = `hangeoreum_data/programs_ontong_v3.json` 의 `programs[]` 한 건 (v3 스키마)
+- `lib/data/ontong_programs.dart` 는 **자동 생성 파일**이라 직접 고치지 않아요. 지금 신청 가능한 정책만 골라 넣어요.
+- 샘플 날짜(스크랩·모집 마감 등)는 앱을 켠 날 기준으로 계산돼서 항상 최근처럼 보여요. STEP 1 미션에는 마감일이 없어요.
+- 백엔드가 붙으면 `ProgramDetail.fromJson(json)` 으로 서버 응답을 읽고 `program_detail_screen.dart` 의 `findProgramDetail` 만 바꾸면 돼요.
+- 온통청년 이용 조건에 따라 상세 화면 아래에 출처와 원문 링크를 표시해요.
+
+**데이터 새로 받기** (인증키는 코드·깃에 넣지 말고 환경변수로)
+
+```powershell
+cd ~/openSource/hangeoreum_data
+$env:ONTONG_API_KEY="발급받은키"; python fetch_ontong.py   # API 수집 → raw/
+python convert_ontong_v3.py                                  # raw → programs_ontong_v3.json
+cd ../Hangeoleum-UI
+python tool/ontong_to_dart.py ../hangeoreum_data/programs_ontong_v3.json   # → lib/data/ontong_programs.dart
+```
+
+## 알림 이동
+
+| 알림 | 누르면 |
+| --- | --- |
+| 마감 임박 | 홈 |
+| STEP 1 미션 알림 (`Notice.step == 1`) | STEP 탭의 STEP 1 |
+| 그 밖의 정책 소식 (`Notice.programId`) | 프로그램 상세 |
 
 ## 코드 규칙
 
