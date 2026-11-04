@@ -39,11 +39,7 @@ class HomeScreen extends StatelessWidget {
                 color: AppColors.green,
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: const Icon(
-                Icons.directions_walk,
-                size: 15,
-                color: AppColors.paper,
-              ),
+              child: Image.asset('assets/images/logo.png', width: 80, height: 80, fit: BoxFit.contain, semanticLabel: '앱 로고',),
             ),
             const SizedBox(width: 6),
             const Text('한걸음'),
