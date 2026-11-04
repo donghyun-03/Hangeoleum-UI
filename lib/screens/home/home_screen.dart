@@ -466,15 +466,6 @@ class _YouthHome extends StatelessWidget {
           ),
         ),
 
-        // 기존 활동 수정 버튼을 유지합니다.
-        AppButton(
-          label: '활동 수정',
-          icon: Icons.edit_outlined,
-          variant: ButtonVariant.ghost,
-          onPressed: () {
-            Navigator.pushNamed(context, Routes.missionEdit);
-          },
-        ),
         const SizedBox(height: 24),
         Row(
           children: [
