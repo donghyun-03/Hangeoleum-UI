@@ -102,7 +102,7 @@ class _Step4JobState extends State<Step4Job> {
       Text('채용 공고 ${list.length}건', style: AppText.bodyBold.copyWith(fontSize: 12.5)),
       const SizedBox(height: 8),
       if (list.isEmpty) const EmptyState(icon: Icons.search_off, title: '조건에 맞는 공고가 없어요', desc: '검색어나 필터를 줄여 보세요.'),
-      for (final o in list) OpportunityCard(o: o, onTap: () => AppNav.toComingSoon(context, o.title)),
+      for (final o in list) OpportunityCard(o: o, onTap: () => AppNav.toProgramDetail(context, o.id)),
     ]);
   }
 }

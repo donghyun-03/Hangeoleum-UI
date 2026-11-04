@@ -582,6 +582,7 @@ class _InstitutionHome extends StatelessWidget {
         ),
         for (final program in programs)
           AppCard(
+            onTap: () => AppNav.toProgramDetail(context, program.id),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

@@ -18,6 +18,7 @@ import '../screens/mission/mission_edit_screen.dart';
 import '../screens/notification/notification_screen.dart';
 import '../screens/onboarding/diagnosis_screen.dart';
 import '../screens/profile/profile_screen.dart';
+import '../screens/program/program_detail_screen.dart';
 import '../screens/record/record_list_screen.dart';
 import '../screens/record/record_result_screen.dart';
 import '../screens/record/record_write_screen.dart';
@@ -55,7 +56,8 @@ class Routes {
   // 취업 (STEP 4)
   static const applicationStatus = '/applications'; // 취업 지원현황
 
-  // 기관
+  // 프로그램 (STEP 3·4 공고 상세 · 기관 등록)
+  static const programDetail = '/program/detail'; // 인자: String programId (공고 id 또는 등록 프로그램 id)
   static const programRegister = '/program/register';
 
   // 기타
@@ -84,6 +86,7 @@ Route<dynamic> onGenerateRoute(RouteSettings settings) {
     Routes.teamApply => TeamApplyScreen(postId: args as String),
     Routes.teamPostWrite => const TeamPostWriteScreen(),
     Routes.applicationStatus => const ApplicationStatusScreen(),
+    Routes.programDetail => ProgramDetailScreen(programId: args as String),
     Routes.programRegister => const ProgramRegisterScreen(),
     Routes.notifications => const NotificationScreen(),
     Routes.profile => const ProfileScreen(),
@@ -118,6 +121,10 @@ class AppNav {
   /// 글을 올리면 true
   static Future<bool> toTeamPostWrite(BuildContext context) async =>
       await Navigator.pushNamed(context, Routes.teamPostWrite) == true;
+
+  /// 프로그램 상세. id 는 공고 id(o1 …) 또는 기관이 등록한 프로그램 id
+  static Future<void> toProgramDetail(BuildContext context, String programId) =>
+      Navigator.pushNamed(context, Routes.programDetail, arguments: programId);
 
   static Future<void> toComingSoon(BuildContext context, String title) =>
       Navigator.pushNamed(context, Routes.comingSoon, arguments: title);

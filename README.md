@@ -47,6 +47,7 @@ lib/
     scrap/                      scrap_screen                   ← 추가 기능 3
     team/                       member_profile_screen, team_apply_screen, team_post_write_screen
     application/                application_status_screen (취업 지원현황)
+    program/                    program_detail_screen (STEP 3·4 프로그램 상세, 온통청년 v2 스키마)
     institution/                program_register_screen        ← 추가 기능 6
     notification/               notification_screen
     profile/                    profile_screen (내 정보)
@@ -72,10 +73,13 @@ test/widget_test.dart           기본 흐름 테스트
 | STEP 2 | 팀 카드 / 팀원 아바타 | 팀 신청(모집 글 상세) / 팀원 프로필 |
 | STEP 2 | 글쓰기 | 팀원 모집 글쓰기 → '내가 쓴 글' 탭 |
 | STEP 2 | 팀 신청 완료 | '내가 신청한 글' 탭 |
+| STEP 3·4 · 스크랩 · 전체 | 공고 카드 | 프로그램 상세 (지원 내용·대상·신청 방법·기간·출처) |
+| 프로그램 상세 | 북마크 / 신청하러 가기 | 스크랩 탭에 추가 / 신청 링크 복사 |
 | STEP 3·4 | 북마크 | 스크랩 탭에 추가 |
 | STEP 4 | 오른쪽 위 지원현황 | 취업 지원현황 (단계·메모 관리) |
 | 스크랩 | 지원했어요 | 취업 지원현황에 추가 |
 | STEP 3·4 (기관) | 글쓰기 | 프로그램 등록 |
+| 홈 (기관) | 등록한 프로그램 카드 | 프로그램 상세 (검수 전) |
 | 전체 | 서비스 목록 | 각 화면 |
 
 ## 추가 기능 (디자인 시안 대비)
@@ -90,6 +94,15 @@ test/widget_test.dart           기본 흐름 테스트
 | 6 | 팀원 프로필 · 팀 신청 · 프로그램 등록(기관) | `team/`, `institution/` | 디자인 없음 → 임시 레이아웃 |
 
 화면 안의 노란 **TODO 박스**와 코드의 `// TODO(...)` 주석이 남은 작업입니다.
+
+## 프로그램 상세 데이터
+
+`models.dart` 의 `ProgramDetail` 은 `hangeoreum_data/programs_ontong_v2.json` 의 `programs[]` 한 건과 같은 모양입니다.
+
+- 실제 데이터 연결: `ProgramDetail.fromJson(json)` → `program_detail_screen.dart` 의 `findProgramDetail` 만 교체
+- 샘플: `mock_data.dart` 의 `mockProgramDetails` (STEP 3 공고 o1~o4). 없는 공고는 카드 정보로 간단히 채움
+- 자격 조건 배열이 `[]` 이면 화면에 '제한 없음'으로 모아서 표시
+- 온통청년 이용 조건에 따라 화면 아래에 출처와 원문 링크를 표시
 
 ## 코드 규칙
 

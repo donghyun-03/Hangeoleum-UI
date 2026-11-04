@@ -333,3 +333,182 @@ List<ActivityRecord> mockRecordsOf(TeamMember m) {
         ),
   ];
 }
+
+// ── 프로그램 상세 (온통청년 → 한걸음 '프로그램' v2 형식 샘플)
+// 실제 데이터로 바꿀 때: programs_ontong_v2.json 의 programs[] 한 건 → ProgramDetail.fromJson(json)
+// key 는 공고 id (mockOpportunities). 여기 없는 공고는 상세 화면이 카드 정보로 간단히 채웁니다.
+// 날짜는 공고 카드의 D-day 와 맞도록 오늘 기준으로 만듭니다 (_inDays).
+String _inDays(int days) {
+  final now = DateTime.now();
+  final d = DateTime(now.year, now.month, now.day + days);
+  return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+}
+
+const _allSido = ['11', '26', '27', '28', '29', '30', '31', '36', '41', '43', '44', '46', '47', '48', '50', '51', '52'];
+
+final mockProgramDetails = <String, ProgramDetail>{
+  'o1': ProgramDetail(
+    id: 'o1',
+    originalId: '20261020005400212301',
+    lastModified: '2026-10-20 14:02:11',
+    name: '데이터 분석 입문 부트캠프',
+    organization: '서울청년센터',
+    supervisingOrg: '서울특별시',
+    providerGroup: '지자체',
+    provisionMethod: '프로그램',
+    content: '쉬고 있는 청년이 데이터 분석 기초를 4주 동안 온라인으로 익히는 부트캠프입니다.\n\n'
+        '- 1주차: 엑셀로 데이터 정리하기 (정렬·필터·피벗 테이블)\n'
+        '- 2주차: 기초 통계와 차트 만들기\n'
+        '- 3주차: 파이썬(pandas)으로 공공데이터 분석 실습\n'
+        '- 4주차: 미니 프로젝트 발표 및 수료\n\n'
+        '수료 기준(출석 80% 이상, 미니 프로젝트 제출)을 채우면 수료증과 함께 학습 지원금 5만원을 드립니다. '
+        '수업은 평일 저녁 7시~9시 실시간 온라인으로 진행되고, 놓친 수업은 다시보기로 들을 수 있습니다.',
+    category: '교육･직업훈련',
+    categories: ['교육･직업훈련'],
+    subCategory: '온·오프라인교육',
+    subCategories: ['온·오프라인교육', '미래역량강화'],
+    keywords: ['교육지원', '디지털', '취업'],
+    regionTopOrg: '서울특별시',
+    regionSidoCodes: ['11'],
+    regionZipCodes: ['11110', '11440', '11500'],
+    minAge: 19,
+    maxAge: 39,
+    jobConditions: ['미취업자'],
+    incomeConditionType: '무관',
+    extraEligibility: '서울시에 살거나 서울 소재 대학을 다니는(졸업한) 청년\n최근 6개월 동안 일이나 교육 활동을 하지 않은 청년 우선 선발',
+    excludedTargets: '올해 서울시 청년 데이터 교육 과정을 이미 수료한 사람',
+    applyPeriodType: '특정기간',
+    applyStart: _inDays(-14),
+    applyEnd: _inDays(5),
+    bizPeriodType: '특정기간',
+    bizStart: _inDays(13),
+    bizEnd: _inDays(38),
+    applyUrl: 'https://youth.seoul.go.kr',
+    refUrls: ['https://youth.seoul.go.kr'],
+    applyMethod: '청년몽땅정보통 회원가입 후 온라인 신청서 작성',
+    screeningMethod: '서류 검토 후 개별 문자 안내 (선착순 아님)',
+    documents: '신청서(온라인 작성), 주민등록초본 1부',
+    etc: '노트북이 없으면 신청서에 적어 주세요. 대여 가능 여부를 따로 안내합니다.',
+    step: 3,
+    difficulty: '보통',
+    durationMinutes: 120,
+    aiConfidence: 0.86,
+    reviewStatus: '검수 완료',
+  ),
+  'o2': ProgramDetail(
+    id: 'o2',
+    originalId: '20261005005400211877',
+    lastModified: '2026-10-05 09:30:00',
+    name: '공공데이터 활용 아이디어 공모전',
+    organization: '행정안전부',
+    providerGroup: '중앙부처',
+    provisionMethod: '프로그램',
+    content: '공공데이터를 활용해 생활 속 문제를 해결하는 아이디어를 모집합니다.\n\n'
+        '- 부문: 아이디어 기획 / 서비스 개발\n'
+        '- 시상: 대상 1팀(500만원), 최우수상 2팀(각 300만원), 우수상 5팀(각 100만원)\n'
+        '- 수상작은 공공데이터 창업 지원 프로그램 연계 기회 제공\n\n'
+        '개인 또는 5명 이하 팀으로 참가할 수 있고, 기획서(10쪽 이내)를 제출하면 됩니다.',
+    category: '참여･기반',
+    categories: ['참여･기반'],
+    subCategory: '청년참여',
+    subCategories: ['청년참여'],
+    keywords: ['공모전', '디지털'],
+    isNationwide: true,
+    regionSidoCodes: _allSido,
+    minAge: 19,
+    maxAge: 39,
+    incomeConditionType: '무관',
+    extraEligibility: '팀 참가 시 팀원 절반 이상이 만 19~39세여야 함',
+    excludedTargets: '다른 공모전에서 상을 받은 아이디어를 그대로 낸 경우',
+    applyPeriodType: '특정기간',
+    applyStart: _inDays(-29),
+    applyEnd: _inDays(12),
+    bizPeriodType: '기타',
+    bizPeriodText: '마감 후 한 달 안에 결과 발표, 시상식 일정은 따로 안내',
+    applyUrl: 'https://www.data.go.kr',
+    refUrls: ['https://www.data.go.kr'],
+    applyMethod: '공공데이터포털 공모전 페이지에서 참가 신청서와 기획서 업로드',
+    screeningMethod: '1차 서류 심사 → 2차 발표 심사',
+    documents: '참가 신청서, 아이디어 기획서(10쪽 이내), 개인정보 수집 동의서',
+    step: 3,
+    difficulty: '어려움',
+    durationMinutes: 600,
+    aiConfidence: 0.72,
+    reviewStatus: '검수 대기',
+  ),
+  'o3': ProgramDetail(
+    id: 'o3',
+    originalId: '20261015005400212045',
+    lastModified: '2026-10-15 11:12:40',
+    name: '청년 데이터 서포터즈 3기 모집',
+    organization: '청년재단',
+    supervisingOrg: '국무조정실',
+    providerGroup: '중앙부처',
+    provisionMethod: '프로그램',
+    content: '청년 정책 데이터를 직접 살펴보고, 청년 눈높이로 소개하는 콘텐츠를 만드는 서포터즈입니다.\n\n'
+        '- 활동: 월 2회 온라인 미션 (데이터 읽고 카드뉴스·짧은 글 만들기)\n'
+        '- 혜택: 월 활동비 10만원, 우수 활동자 표창, 수료증\n'
+        '- 발대식·해단식만 서울에서 오프라인으로 진행 (교통비 지원)',
+    category: '참여･기반',
+    categories: ['참여･기반', '일자리'],
+    subCategory: '청년참여',
+    subCategories: ['청년참여'],
+    keywords: ['대외활동', '활동비'],
+    isNationwide: true,
+    regionSidoCodes: _allSido,
+    minAge: 19,
+    maxAge: 34,
+    incomeConditionType: '무관',
+    applyPeriodType: '특정기간',
+    applyStart: _inDays(-19),
+    applyEnd: _inDays(20),
+    bizPeriodType: '특정기간',
+    bizStart: _inDays(28),
+    bizEnd: _inDays(148),
+    applyUrl: 'https://www.kyf.or.kr',
+    refUrls: ['https://www.kyf.or.kr'],
+    applyMethod: '청년재단 누리집 공지사항의 신청서 작성 후 이메일 제출',
+    screeningMethod: '서류 심사 후 합격자 개별 안내',
+    documents: '지원서, 자기소개(500자 이내)',
+    reviewStatus: '검수 대기',
+  ),
+  'o4': ProgramDetail(
+    id: 'o4',
+    originalId: '20261010005400211990',
+    lastModified: '2026-10-10 16:45:03',
+    name: '엑셀·파이썬 기초 과정',
+    organization: '고용노동부',
+    supervisingOrg: '고용노동부',
+    providerGroup: '중앙부처',
+    provisionMethod: '바우처',
+    content: '국민내일배움카드로 듣는 사무 자동화 기초 과정입니다. 처음 배우는 사람도 따라올 수 있도록 엑셀 기본 함수부터 시작해 '
+        '파이썬으로 반복 업무를 자동화하는 것까지 다룹니다.\n\n'
+        '훈련비의 일부를 카드로 지원하고, 출석률을 채우면 훈련장려금을 받을 수 있습니다.',
+    category: '교육･직업훈련',
+    categories: ['교육･직업훈련'],
+    subCategory: '교육비지원',
+    subCategories: ['교육비지원'],
+    keywords: ['교육지원', '바우처'],
+    regionTopOrg: '고용노동부',
+    regionSidoCodes: ['11', '41', '28'],
+    minAge: 15,
+    maxAge: 34,
+    jobConditions: ['미취업자', '단기근로자'],
+    incomeConditionType: '연소득',
+    incomeMax: 5000,
+    applyPeriodType: '상시',
+    bizPeriodType: '특정기간',
+    bizStart: _inDays(-24),
+    bizEnd: _inDays(58),
+    applyUrl: 'https://www.work24.go.kr',
+    refUrls: ['https://www.work24.go.kr'],
+    applyMethod: '고용24에서 국민내일배움카드 발급 후 과정 검색해 수강 신청',
+    screeningMethod: '훈련기관 상담 후 수강 확정',
+    documents: '국민내일배움카드',
+    step: 3,
+    difficulty: '쉬움',
+    durationMinutes: 60,
+    aiConfidence: 0.91,
+    reviewStatus: '검수 완료',
+  ),
+};

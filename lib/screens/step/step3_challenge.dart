@@ -41,7 +41,7 @@ class _Step3ChallengeState extends State<Step3Challenge> {
       ),
       const SizedBox(height: 12),
       if (list.isEmpty) const EmptyState(icon: Icons.search, title: '검색 결과가 없어요'),
-      for (final o in list) OpportunityCard(o: o, onTap: () => AppNav.toComingSoon(context, o.title)),
+      for (final o in list) OpportunityCard(o: o, onTap: () => AppNav.toProgramDetail(context, o.id)),
     ]);
   }
 }

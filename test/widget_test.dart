@@ -111,6 +111,33 @@ void _registerStepTests() {
     expect(find.text('카드를 누르면 자세한 내용을 볼 수 있어요.'), findsOneWidget);
   });
 
+  testWidgets('STEP 3: 공고 카드 → 프로그램 상세 → 스크랩', (tester) async {
+    await _enterStep(tester, 3);
+    await tester.tap(find.text('데이터 분석 입문 부트캠프').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('프로그램 상세'), findsOneWidget);
+    expect(find.text('지원 내용'), findsOneWidget);
+    expect(find.text('지원 대상'), findsOneWidget);
+    expect(find.text('내 조건으로 보면'), findsOneWidget);
+    expect(find.text('해당돼요'), findsNWidgets(2)); // 만 26세 · 서울 → 만 19~39세 · 서울
+    expect(find.text('신청하러 가기'), findsOneWidget);
+    expect(find.textContaining('출처 온통청년'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('스크랩'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('스크랩 취소'), findsOneWidget);
+    await _flush(tester);
+  });
+
+  testWidgets('STEP 4: 상세 데이터 없는 공고도 상세 화면이 열림', (tester) async {
+    await _enterStep(tester, 4);
+    await tester.tap(find.text('AI 학습용 데이터 검수 담당'));
+    await tester.pumpAndSettle();
+    expect(find.text('프로그램 상세'), findsOneWidget);
+    expect(find.text('가온데이터'), findsOneWidget);
+  });
+
   testWidgets('STEP 4: 지원현황 버튼 → 카드 목록', (tester) async {
     await _enterStep(tester, 4);
     expect(find.text('회사명, 직무로 검색'), findsOneWidget);

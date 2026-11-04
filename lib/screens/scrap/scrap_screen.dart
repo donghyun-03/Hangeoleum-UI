@@ -88,6 +88,7 @@ class _ScrapCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final state = context.read<AppState>();
     return AppCard(
+      onTap: () => AppNav.toProgramDetail(context, o.id),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Expanded(

@@ -433,3 +433,318 @@ class Notice {
 
   Notice markRead() => Notice(id: id, group: group, category: category, title: title, meta: meta, dday: dday, read: true);
 }
+
+// ── 프로그램 상세 (온통청년 → 한걸음 '프로그램' 테이블 v2)
+// hangeoreum_data/programs_ontong_v2.json 의 programs[] 한 건과 같은 모양입니다. (README 의 'programs 필드' 표 참고)
+// 규칙: 값이 없으면 null, 날짜는 'YYYY-MM-DD', 자격 조건 배열이 [] 이면 '제한 없음'.
+
+/// 시도 코드 2자리 → 짧은 이름 (강원·전북은 특별자치도 전환 전후 코드 모두)
+const sidoNames = {
+  '11': '서울', '26': '부산', '27': '대구', '28': '인천', '29': '광주', '30': '대전', '31': '울산', '36': '세종',
+  '41': '경기', '42': '강원', '43': '충북', '44': '충남', '45': '전북', '46': '전남', '47': '경북', '48': '경남',
+  '50': '제주', '51': '강원', '52': '전북',
+};
+
+/// 주소가 '경상북도 …' 처럼 긴 이름으로 시작하는 시도
+const _sidoLongNames = {'충북': '충청북도', '충남': '충청남도', '전북': '전라북도', '전남': '전라남도', '경북': '경상북도', '경남': '경상남도'};
+
+List<String> _strList(dynamic v) => v is List ? [for (final x in v) if (x != null) x.toString()] : const [];
+String? _nz(String? s) => (s == null || s.trim().isEmpty) ? null : s.trim();
+String _ymd(DateTime d) => '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+class ProgramDetail {
+  /// 앱 안에서 쓰는 id (공고 id 또는 원본 정책번호)
+  final String id;
+
+  // 식별
+  final String source; // 'API' / 'MOCK' / '기관'
+  final String sourceName; // '온통청년' 등 — 화면에 출처로 표시
+  final String? originalId; // 정책번호
+  final String? lastModified;
+
+  // 기본
+  final String name;
+  final String? organization; // 운영기관
+  final String? supervisingOrg; // 주관기관
+  final String? providerGroup; // 중앙부처 / 지자체
+  final String? provisionMethod; // 프로그램, 보조금, 바우처 …
+  final String? content; // 정책설명 + 지원내용
+
+  // 분류
+  final String? category;
+  final List<String> categories;
+  final String? subCategory;
+  final List<String> subCategories;
+  final List<String> keywords;
+
+  // 지역
+  final bool isNationwide;
+  final String? regionTopOrg;
+  final List<String> regionSidoCodes;
+  final List<String> regionZipCodes;
+
+  // 자격 (null·[] = 제한 없음)
+  final int? minAge;
+  final int? maxAge;
+  final List<String> jobConditions;
+  final List<String> educationConditions;
+  final List<String> majorConditions;
+  final List<String> specialConditions;
+  final String? marriageCondition;
+  final String? incomeConditionType; // 무관 / 연소득 / 기타
+  final int? incomeMin;
+  final int? incomeMax;
+  final String? incomeConditionText;
+  final String? extraEligibility;
+  final String? excludedTargets;
+
+  // 기간
+  final String? applyPeriodType; // 특정기간 / 상시 / 마감
+  final String? applyStart;
+  final String? applyEnd;
+  final String? bizPeriodType;
+  final String? bizStart;
+  final String? bizEnd;
+  final String? bizPeriodText;
+
+  // 신청
+  final String? applyUrl;
+  final List<String> refUrls;
+  final String? applyMethod;
+  final String? screeningMethod;
+  final String? documents;
+  final String? etc;
+
+  // 한걸음 서비스용 (LLM 분류 단계에서 채움)
+  final int? step;
+  final String? difficulty;
+  final int? durationMinutes;
+  final double? aiConfidence; // 0~1
+  final String? reviewStatus; // 검수 대기 / 검수 완료 …
+  final bool closed;
+  final String? closedReason;
+
+  const ProgramDetail({
+    required this.id,
+    this.source = 'API',
+    this.sourceName = '온통청년',
+    this.originalId,
+    this.lastModified,
+    required this.name,
+    this.organization,
+    this.supervisingOrg,
+    this.providerGroup,
+    this.provisionMethod,
+    this.content,
+    this.category,
+    this.categories = const [],
+    this.subCategory,
+    this.subCategories = const [],
+    this.keywords = const [],
+    this.isNationwide = false,
+    this.regionTopOrg,
+    this.regionSidoCodes = const [],
+    this.regionZipCodes = const [],
+    this.minAge,
+    this.maxAge,
+    this.jobConditions = const [],
+    this.educationConditions = const [],
+    this.majorConditions = const [],
+    this.specialConditions = const [],
+    this.marriageCondition,
+    this.incomeConditionType,
+    this.incomeMin,
+    this.incomeMax,
+    this.incomeConditionText,
+    this.extraEligibility,
+    this.excludedTargets,
+    this.applyPeriodType,
+    this.applyStart,
+    this.applyEnd,
+    this.bizPeriodType,
+    this.bizStart,
+    this.bizEnd,
+    this.bizPeriodText,
+    this.applyUrl,
+    this.refUrls = const [],
+    this.applyMethod,
+    this.screeningMethod,
+    this.documents,
+    this.etc,
+    this.step,
+    this.difficulty,
+    this.durationMinutes,
+    this.aiConfidence,
+    this.reviewStatus,
+    this.closed = false,
+    this.closedReason,
+  });
+
+  /// programs_ontong_v2.json 의 programs[] 한 건 → ProgramDetail
+  factory ProgramDetail.fromJson(Map<String, dynamic> j, {String? id}) {
+    String? str(String k) => _nz(j[k]?.toString());
+    int? integer(String k) => (j[k] as num?)?.toInt();
+    return ProgramDetail(
+      id: id ?? str('id') ?? str('originalId') ?? '',
+      source: str('source') ?? 'API',
+      sourceName: str('sourceName') ?? '온통청년',
+      originalId: str('originalId'),
+      lastModified: str('lastModified'),
+      name: str('name') ?? '(이름 없음)',
+      organization: str('organization'),
+      supervisingOrg: str('supervisingOrg'),
+      providerGroup: str('providerGroup'),
+      provisionMethod: str('provisionMethod'),
+      content: str('content'),
+      category: str('category'),
+      categories: _strList(j['categories']),
+      subCategory: str('subCategory'),
+      subCategories: _strList(j['subCategories']),
+      keywords: _strList(j['keywords']),
+      isNationwide: j['isNationwide'] == true,
+      regionTopOrg: str('regionTopOrg'),
+      regionSidoCodes: _strList(j['regionSidoCodes']),
+      regionZipCodes: _strList(j['regionZipCodes']),
+      minAge: integer('minAge'),
+      maxAge: integer('maxAge'),
+      jobConditions: _strList(j['jobConditions']),
+      educationConditions: _strList(j['educationConditions']),
+      majorConditions: _strList(j['majorConditions']),
+      specialConditions: _strList(j['specialConditions']),
+      marriageCondition: str('marriageCondition'),
+      incomeConditionType: str('incomeConditionType'),
+      incomeMin: integer('incomeMin'),
+      incomeMax: integer('incomeMax'),
+      incomeConditionText: str('incomeConditionText'),
+      extraEligibility: str('extraEligibility'),
+      excludedTargets: str('excludedTargets'),
+      applyPeriodType: str('applyPeriodType'),
+      applyStart: str('applyStart'),
+      applyEnd: str('applyEnd'),
+      bizPeriodType: str('bizPeriodType'),
+      bizStart: str('bizStart'),
+      bizEnd: str('bizEnd'),
+      bizPeriodText: str('bizPeriodText'),
+      applyUrl: str('applyUrl'),
+      refUrls: _strList(j['refUrls']),
+      applyMethod: str('applyMethod'),
+      screeningMethod: str('screeningMethod'),
+      documents: str('documents'),
+      etc: str('etc'),
+      step: integer('step'),
+      difficulty: str('difficulty'),
+      durationMinutes: integer('durationMinutes'),
+      aiConfidence: (j['aiConfidence'] as num?)?.toDouble(),
+      reviewStatus: str('reviewStatus'),
+      closed: j['closed'] == true,
+      closedReason: str('closedReason'),
+    );
+  }
+
+  /// 상세 데이터가 아직 없는 공고 → 카드 정보로만 채운 상세 (STEP 4 채용은 워크넷 API 연결 전)
+  factory ProgramDetail.fromOpportunity(Opportunity o) {
+    final today = DateTime.now();
+    return ProgramDetail(
+      id: o.id,
+      source: 'MOCK',
+      sourceName: '한걸음 샘플',
+      name: o.title,
+      organization: o.org,
+      category: kindLabel[o.kind],
+      subCategory: o.field,
+      subCategories: [o.field],
+      provisionMethod: o.employment,
+      regionTopOrg: o.region,
+      applyPeriodType: '특정기간',
+      applyEnd: _ymd(DateTime(today.year, today.month, today.day + o.dday)),
+      bizPeriodText: o.period == null ? null : '진행 ${o.period}',
+      extraEligibility: o.career == null ? null : '경력 조건: ${o.career}',
+    );
+  }
+
+  /// 기관이 등록한 프로그램 → 상세 (검수 전)
+  factory ProgramDetail.fromRegistered(Program p) {
+    final eligibility = [
+      if (_nz(p.target) case final t?) t,
+      if (_nz(p.capacity) case final c?) '모집 인원 $c',
+    ].join('\n');
+    final link = _nz(p.link);
+    return ProgramDetail(
+      id: p.id,
+      source: '기관',
+      sourceName: '기관 등록',
+      name: p.title,
+      organization: _nz(p.org),
+      category: kindLabel[p.kind],
+      content: _nz(p.desc),
+      regionTopOrg: _nz(p.region),
+      applyPeriodType: '특정기간',
+      applyEnd: _nz(p.deadline),
+      bizPeriodType: '특정기간',
+      bizStart: _nz(p.startDate),
+      bizEnd: _nz(p.endDate),
+      extraEligibility: _nz(eligibility),
+      applyUrl: link,
+      refUrls: [if (link != null) link],
+      step: p.step,
+      reviewStatus: '검수 대기',
+    );
+  }
+
+  DateTime? get applyStartDate => applyStart == null ? null : DateTime.tryParse(applyStart!);
+  DateTime? get applyEndDate => applyEnd == null ? null : DateTime.tryParse(applyEnd!);
+
+  /// 변환일 기준 closed + 오늘 기준으로 신청 마감일이 지났는지
+  bool isClosedOn(DateTime today) {
+    if (closed || applyPeriodType == '마감') return true;
+    final end = applyEndDate;
+    return applyPeriodType == '특정기간' && end != null && end.isBefore(today);
+  }
+
+  /// 신청 시작 전인지
+  bool isUpcomingOn(DateTime today) {
+    final start = applyStartDate;
+    return start != null && start.isAfter(today);
+  }
+
+  /// 신청 마감까지 남은 날 (마감일 없으면 null)
+  int? ddayOn(DateTime today) => applyEndDate?.difference(today).inDays;
+
+  List<String> get regionNames => {
+        for (final c in regionSidoCodes)
+          if (sidoNames[c] case final n?) n,
+      }.toList();
+
+  String get regionLabel {
+    if (isNationwide) return '전국';
+    final names = regionNames;
+    if (names.isEmpty) return regionTopOrg ?? '정보 없음';
+    if (names.length <= 3) return names.join(' · ');
+    return '${names.take(2).join(' · ')} 외 ${names.length - 2}곳';
+  }
+
+  String get ageLabel {
+    final a = minAge, b = maxAge;
+    if (a != null && b != null) return '만 $a~$b세';
+    if (a != null) return '만 $a세 이상';
+    if (b != null) return '만 $b세 이하';
+    return '제한 없음';
+  }
+
+  bool ageMatches(int age) {
+    final a = minAge, b = maxAge;
+    return (a == null || age >= a) && (b == null || age <= b);
+  }
+
+  /// 주소('서울특별시 마포구 …')가 지원 지역에 드는지. 지역 정보가 없으면 null (판단 불가)
+  bool? regionMatches(String address) {
+    if (isNationwide) return true;
+    final names = regionNames;
+    if (names.isEmpty) return null;
+    return names.any((n) => address.startsWith(n) || address.startsWith(_sidoLongNames[n] ?? n));
+  }
+
+  /// 한걸음 분류 정보(STEP·난이도·소요시간·AI 확신도)가 있는지
+  bool get hasServiceInfo => step != null || difficulty != null || durationMinutes != null || aiConfidence != null;
+}
+
