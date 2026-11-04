@@ -14,7 +14,6 @@ import '../screens/auth/login_screen.dart';
 import '../screens/auth/signup_screen.dart';
 import '../screens/common/coming_soon_screen.dart';
 import '../screens/institution/program_register_screen.dart';
-import '../screens/mission/mission_edit_screen.dart';
 import '../screens/notification/notification_screen.dart';
 import '../screens/onboarding/diagnosis_screen.dart';
 import '../screens/profile/profile_screen.dart';
@@ -44,8 +43,6 @@ class Routes {
   static const recordWrite = '/record/write'; // 인자: String? missionId
   static const recordResult = '/record/result'; // 인자: ActivityRecord (AI 정리 초안)
 
-  // 미션
-  static const missionEdit = '/mission/edit';
 
   // 팀 (STEP 2)
   static const memberProfile = '/team/member'; // 인자: String memberId
@@ -77,7 +74,6 @@ Route<dynamic> onGenerateRoute(RouteSettings settings) {
     Routes.recordList => const RecordListScreen(),
     Routes.recordWrite => RecordWriteScreen(missionId: args as String?),
     Routes.recordResult => RecordResultScreen(draft: args as ActivityRecord),
-    Routes.missionEdit => const MissionEditScreen(),
     Routes.memberProfile => MemberProfileScreen(memberId: args as String),
     Routes.memberActivity => switch (args) {
         (memberId: final String id, tab: final int tab) => MemberActivityScreen(memberId: id, initialTab: tab),
