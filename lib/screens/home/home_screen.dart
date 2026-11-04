@@ -67,34 +67,39 @@ class HomeScreen extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: InkWell(
-                  onTap: () {
-                    Navigator.pushNamed(context, Routes.profile);
-                  },
-                  child: Row(
-                    children: [
-                      Avatar(
-                        name: user.name,
-                        size: 34,
-                        color: AppColors.dim,
-                      ),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Text(
-                          displayName,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppText.h2.copyWith(fontSize: 16),
-                        ),
-                      ),
-                      const Icon(
-                        Icons.chevron_right,
-                        size: 18,
-                        color: AppColors.subtle,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+  child: Align(
+    alignment: Alignment.centerLeft,
+    child: InkWell(
+      onTap: () {
+        Navigator.pushNamed(context, Routes.profile);
+      },
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Avatar(
+            name: user.name,
+            size: 34,
+            color: AppColors.dim,
+          ),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              displayName,
+              overflow: TextOverflow.ellipsis,
+              style: AppText.h2.copyWith(fontSize: 16),
+            ),
+          ),
+          const Icon(
+            Icons.chevron_right,
+            size: 18,
+            color: AppColors.subtle,
+          ),
+        ],
+      ),
+    ),
+  ),
+),
+
               if (!state.isInstitution) ...[
                 const SizedBox(width: 12),
                 AppButton(
