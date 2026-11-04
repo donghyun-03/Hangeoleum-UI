@@ -1,15 +1,13 @@
-// 내 정보 — 기본 정보 수정, 관심 분야, 맞춤 알림
+// 내 정보 — 보기 화면 (팀원 프로필과 같은 구성). 연필 버튼으로 내 정보 수정 화면 이동
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../data/mock_data.dart';
-import '../../models/models.dart';
 import '../../router/routes.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
-
-const _alertLabels = {'policy': '정책', 'camp': '캠프', 'saving': '청년 적금', 'project': '프로젝트'};
+import 'profile_edit_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -19,19 +17,52 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  late AppUser _u = context.read<AppState>().user;
-
-  void _save() {
-    // TODO(API): 내 정보 수정
-    context.read<AppState>().updateUser((_) => _u);
-    showToast(context, '저장했어요');
+  Future<void> _editIntro(String current) async {
+    final ctrl = TextEditingController(text: current);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.paper,
+        surfaceTintColor: AppColors.paper,
+        title: Text('소개 수정', style: AppText.title),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          maxLines: 3,
+          decoration: const InputDecoration(hintText: '간단한 소개를 적어 주세요'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('취소', style: TextStyle(color: AppColors.subtle)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, ctrl.text.trim()),
+            child: const Text('저장', style: TextStyle(color: AppColors.green)),
+          ),
+        ],
+      ),
+    );
+    ctrl.dispose();
+    if (result == null || !mounted) return;
+    context.read<AppState>().updateUser((u) => u.copyWith(intro: result));
   }
-
-  Widget _row(Widget a, Widget b, {int flexA = 1}) =>
-      Row(crossAxisAlignment: CrossAxisAlignment.end, children: [Expanded(flex: flexA, child: a), const SizedBox(width: 10), Expanded(child: b)]);
 
   @override
   Widget build(BuildContext context) {
+    final state = context.watch<AppState>();
+    final u = state.user;
+
+    final myId = u.id; // 내 ID
+    final step = u.currentStep;
+    final intro = u.intro.isEmpty ? '안녕하세요, ${u.name}입니다.' : u.intro;
+
+    final missions = state.doneMissionsOf(myId);
+    final records = state.recordsOf(myId);
+    final posts = state.teamPosts
+        .where((p) => p.leaderId == myId || p.memberIds.contains(myId))
+        .toList();
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('내 정보'),
@@ -41,79 +72,187 @@ class _ProfileScreenState extends State<ProfileScreen> {
               context.read<AppState>().logout();
               AppNav.resetTo(context, Routes.login);
             },
-            child: const Text('로그아웃', style: TextStyle(fontSize: 12.5, color: AppColors.subtle)),
+            child: const Text(
+              '로그아웃',
+              style: TextStyle(fontSize: 12.5, color: AppColors.subtle),
+            ),
           ),
         ],
       ),
-      bottomNavigationBar: BottomBar(child: AppButton(label: '저장하기', onPressed: _save)),
+      floatingActionButton: FloatingActionButton(
+        tooltip: '내 정보 수정',
+        backgroundColor: AppColors.green,
+        foregroundColor: AppColors.paper,
+        elevation: 2,
+        shape: const CircleBorder(),
+        onPressed: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const ProfileEditScreen()),
+        ),
+        child: const Icon(Icons.edit_outlined),
+      ),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          Row(children: [
-            Avatar(name: _u.name, size: 44, color: AppColors.dim),
-            const SizedBox(width: 10),
-            Text(_u.email, style: AppText.body),
-          ]),
-          const SizedBox(height: 16),
-          _row(
-            LabeledField(label: '이름', initialValue: _u.name, onChanged: (v) => _u = _u.copyWith(name: v)),
-            LabeledField(
-              label: '나이',
-              initialValue: _u.age == 0 ? '' : '${_u.age}',
-              keyboardType: TextInputType.number,
-              onChanged: (v) => _u = _u.copyWith(age: int.tryParse(v) ?? 0),
+          Center(child: Avatar(name: u.name, size: 72)),
+          const SizedBox(height: 10),
+          Center(child: Text(u.name, style: AppText.h2)),
+          const SizedBox(height: 4),
+          Center(child: TagBadge('STEP $step · ${stepInfo[step]!.title}')),
+          const SizedBox(height: 2),
+          InkWell(
+            borderRadius: BorderRadius.circular(AppRadius.md),
+            onTap: () => _editIntro(intro),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Flexible(
+                    child: Text(
+                      intro,
+                      style: AppText.small.copyWith(fontSize: 13),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  const Icon(
+                    Icons.edit_outlined,
+                    size: 14,
+                    color: AppColors.subtle,
+                  ),
+                ],
+              ),
             ),
-            flexA: 2,
           ),
-          const SizedBox(height: 12),
-          _row(
-            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('성별', style: AppText.small.copyWith(fontSize: 12)),
-              const SizedBox(height: 6),
-              Segmented<String>(
-                value: _u.gender,
-                onChanged: (v) => setState(() => _u = _u.copyWith(gender: v)),
-                options: const [('female', '여성'), ('male', '남성')],
-              ),
-            ]),
-            LabeledField(label: '연락처', initialValue: _u.phone, onChanged: (v) => _u = _u.copyWith(phone: v)),
-          ),
-          const SizedBox(height: 12),
-          _row(
-            LabeledField(label: '학부', initialValue: _u.major, onChanged: (v) => _u = _u.copyWith(major: v)),
-            LabeledField(label: '학력', initialValue: _u.education, onChanged: (v) => _u = _u.copyWith(education: v)),
-          ),
-          const SizedBox(height: 12),
-          LabeledField(label: '주소', initialValue: _u.address, onChanged: (v) => _u = _u.copyWith(address: v)),
-          const SizedBox(height: 8),
-          LabeledField(hint: '상세 주소', initialValue: _u.addressDetail, onChanged: (v) => _u = _u.copyWith(addressDetail: v)),
-          const SectionTitle('관심 분야'),
-          ChipWrap(children: [
-            for (final i in interestOptions)
-              SelectChip(
-                label: i,
-                selected: _u.interests.contains(i),
-                onTap: () => setState(() => _u = _u.copyWith(
-                      interests: _u.interests.contains(i) ? (_u.interests.where((x) => x != i).toList()) : [..._u.interests, i],
-                    )),
-              ),
-          ]),
-          const SectionTitle('맞춤 알림'),
+          const SizedBox(height: 16),
           AppCard(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: Column(children: [
-              for (final e in _alertLabels.entries)
-                SwitchListTile(
-                  value: _u.alerts[e.key] ?? false,
-                  onChanged: (v) => setState(() => _u = _u.copyWith(alerts: {..._u.alerts, e.key: v})),
-                  title: Text(e.value, style: AppText.body.copyWith(fontSize: 13.5)),
-                  activeTrackColor: AppColors.green,
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Row(
+              children: [
+                _StatButton(
+                  n: missions.length,
+                  label: '완료한 미션',
+                  onTap: () => AppNav.toMemberActivity(context, myId),
                 ),
-            ]),
+                _StatButton(
+                  n: records.length,
+                  label: '활동 기록',
+                  onTap: () => AppNav.toMemberActivity(context, myId, tab: 1),
+                ),
+              ],
+            ),
           ),
+          const SectionTitle('관심 분야'),
+          if (u.interests.isEmpty)
+            Text(
+              '선택한 관심 분야가 없어요.',
+              style: AppText.caption.copyWith(fontSize: 12.5),
+            )
+          else
+            ChipWrap(
+              children: [
+                for (final i in u.interests) TagBadge(i, tone: BadgeTone.gray),
+              ],
+            ),
+          const SectionTitle('참여 중인 프로젝트'),
+          if (posts.isEmpty)
+            Text(
+              '참여 중인 프로젝트가 없어요.',
+              style: AppText.caption.copyWith(fontSize: 12.5),
+            ),
+          for (final p in posts)
+            AppCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${p.category} · ${p.current}/${p.max}명',
+                    style: AppText.caption.copyWith(fontSize: 11),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(p.title, style: AppText.bodyBold),
+                  const SizedBox(height: 8),
+                  AppButton(
+                    label: '모집 글 보기',
+                    small: true,
+                    expand: false,
+                    onPressed: () => AppNav.toTeamApply(context, p.id),
+                  ),
+                ],
+              ),
+            ),
+          const SectionTitle('최근 활동 기록'),
+          if (records.isEmpty)
+            Text(
+              '아직 활동 기록이 없어요.',
+              style: AppText.caption.copyWith(fontSize: 12.5),
+            ),
+          for (final r in records.take(2))
+            AppCard(
+              onTap: () => AppNav.toMemberActivity(context, myId, tab: 1),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      TagBadge('STEP ${r.step}', tone: BadgeTone.gray),
+                      const SizedBox(width: 6),
+                      Text(
+                        r.date,
+                        style: AppText.caption.copyWith(fontSize: 11),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(r.title, style: AppText.bodyBold),
+                  Text(
+                    r.star.r,
+                    style: AppText.small.copyWith(fontSize: 12),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
         ],
+      ),
+    );
+  }
+}
+
+class _StatButton extends StatelessWidget {
+  const _StatButton({required this.n, required this.label, this.onTap});
+  final int n;
+  final String label;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            children: [
+              Text('$n', style: AppText.h2.copyWith(color: AppColors.green)),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(label, style: AppText.caption.copyWith(fontSize: 11)),
+                  if (onTap != null)
+                    const Icon(
+                      Icons.chevron_right,
+                      size: 13,
+                      color: AppColors.subtle,
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -36,6 +36,7 @@ class AppUser {
   final Map<String, bool> alerts; // policy, camp, saving, project
   final bool diagnosed; // AI 진단 완료 여부
   final int currentStep; // 1~4
+  final String intro;
 
   const AppUser({
     required this.id,
@@ -53,6 +54,7 @@ class AppUser {
     required this.alerts,
     required this.diagnosed,
     required this.currentStep,
+    this.intro = '',
   });
 
   AppUser copyWith({
@@ -70,6 +72,7 @@ class AppUser {
     Map<String, bool>? alerts,
     bool? diagnosed,
     int? currentStep,
+    String? intro,
   }) {
     return AppUser(
       id: id,
@@ -87,6 +90,7 @@ class AppUser {
       alerts: alerts ?? this.alerts,
       diagnosed: diagnosed ?? this.diagnosed,
       currentStep: currentStep ?? this.currentStep,
+      intro: intro ?? this.intro,
     );
   }
 }
@@ -113,7 +117,11 @@ class Mission {
     this.due,
   });
 
-  Mission copyWith({MissionStatus? status, DateTime? due, bool clearDue = false}) {
+  Mission copyWith({
+    MissionStatus? status,
+    DateTime? due,
+    bool clearDue = false,
+  }) {
     return Mission(
       id: id,
       title: title,
@@ -132,7 +140,13 @@ class DoneMission {
   final String category;
   final int minutes;
   final DateTime doneAt;
-  const DoneMission({required this.step, required this.title, required this.category, required this.minutes, required this.doneAt});
+  const DoneMission({
+    required this.step,
+    required this.title,
+    required this.category,
+    required this.minutes,
+    required this.doneAt,
+  });
 }
 
 // ── 활동 기록 (STAR)
@@ -141,7 +155,12 @@ class Star {
   final String t; // 목표
   final String a; // 행동
   final String r; // 결과
-  const Star({required this.s, required this.t, required this.a, required this.r});
+  const Star({
+    required this.s,
+    required this.t,
+    required this.a,
+    required this.r,
+  });
 
   Star copyWith({String? s, String? t, String? a, String? r}) =>
       Star(s: s ?? this.s, t: t ?? this.t, a: a ?? this.a, r: r ?? this.r);
@@ -155,7 +174,13 @@ class Attachment {
   final String name; // 파일명 또는 저장소 이름
   final String uri; // 파일 경로 또는 https://github.com/...
   final int? size; // bytes (파일만)
-  const Attachment({required this.id, required this.type, required this.name, required this.uri, this.size});
+  const Attachment({
+    required this.id,
+    required this.type,
+    required this.name,
+    required this.uri,
+    this.size,
+  });
 }
 
 class ActivityRecord {
@@ -178,14 +203,14 @@ class ActivityRecord {
   });
 
   ActivityRecord copyWith({String? title, Star? star}) => ActivityRecord(
-        id: id,
-        step: step,
-        title: title ?? this.title,
-        date: date,
-        raw: raw,
-        star: star ?? this.star,
-        attachments: attachments,
-      );
+    id: id,
+    step: step,
+    title: title ?? this.title,
+    date: date,
+    raw: raw,
+    star: star ?? this.star,
+    attachments: attachments,
+  );
 }
 
 // ── STEP 2 · 연결 (미니 프로젝트 팀)
@@ -368,14 +393,20 @@ class Scrap {
     this.memo = '',
   });
 
-  Scrap copyWith({bool? applied, DateTime? appliedAt, ApplyStage? stage, String? memo, bool clearApply = false}) => Scrap(
-        opportunityId: opportunityId,
-        applied: applied ?? this.applied,
-        scrappedAt: scrappedAt,
-        appliedAt: clearApply ? null : (appliedAt ?? this.appliedAt),
-        stage: clearApply ? null : (stage ?? this.stage),
-        memo: memo ?? this.memo,
-      );
+  Scrap copyWith({
+    bool? applied,
+    DateTime? appliedAt,
+    ApplyStage? stage,
+    String? memo,
+    bool clearApply = false,
+  }) => Scrap(
+    opportunityId: opportunityId,
+    applied: applied ?? this.applied,
+    scrappedAt: scrappedAt,
+    appliedAt: clearApply ? null : (appliedAt ?? this.appliedAt),
+    stage: clearApply ? null : (stage ?? this.stage),
+    memo: memo ?? this.memo,
+  );
 }
 
 // ── 기관 프로그램 등록
@@ -431,7 +462,15 @@ class Notice {
     this.read = false,
   });
 
-  Notice markRead() => Notice(id: id, group: group, category: category, title: title, meta: meta, dday: dday, read: true);
+  Notice markRead() => Notice(
+    id: id,
+    group: group,
+    category: category,
+    title: title,
+    meta: meta,
+    dday: dday,
+    read: true,
+  );
 }
 
 // ── 프로그램 상세 (온통청년 → 한걸음 '프로그램' 테이블 v2)
