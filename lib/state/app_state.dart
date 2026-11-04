@@ -74,6 +74,7 @@ class AppState extends ChangeNotifier {
     _missions[i] = change(_missions[i]);
     notifyListeners();
   }
+  
 
   void startMission(String id) =>
       updateMission(id, (m) => m.status == MissionStatus.todo ? m.copyWith(status: MissionStatus.doing) : m);
@@ -83,6 +84,80 @@ class AppState extends ChangeNotifier {
     final from = _missions.firstWhere((m) => m.id == fromId);
     updateMission(fromId, (m) => m.copyWith(status: MissionStatus.todo, clearDue: true));
     updateMission(toId, (m) => m.copyWith(status: MissionStatus.doing, due: from.due));
+  }
+
+  // ───────────────────────── 활동 그만두기
+
+  // STEP 2~4에서 사용자가 그만둔 활동을 기록합니다.
+  // STEP 1은 기존 MissionStatus.todo로 복귀시킵니다.
+  final Map<int, Set<String>> _stoppedActivityIds = {
+    2: <String>{},
+    3: <String>{},
+    4: <String>{},
+  };
+
+  bool isActivityStopped({
+    required int step,
+    required String activityId,
+  }) {
+    return _stoppedActivityIds[step]?.contains(activityId) ?? false;
+  }
+
+    void stopActivity({
+    required int step,
+    required String activityId,
+  }) {
+    if (activityId.isEmpty) return;
+
+    if (step == 1) {
+      updateMission(
+        activityId,
+        (mission) {
+          // 완료한 미션은 그만두기 처리하지 않습니다.
+          if (mission.status == MissionStatus.done) {
+            return mission;
+          }
+
+          return mission.copyWith(
+            status: MissionStatus.todo,
+            clearDue: true,
+          );
+        },
+      );
+      return;
+    }
+
+    final stoppedIds = _stoppedActivityIds[step];
+
+    if (stoppedIds == null) return;
+
+    // STEP 2~4도 완료한 활동은 그만두기 처리하지 않습니다.
+    if (isHomeActivityDone(
+      step: step,
+      activityId: activityId,
+    )) {
+      return;
+    }
+
+    if (stoppedIds.add(activityId)) {
+      notifyListeners();
+    }
+  }
+
+
+  /// 향후 프로젝트 재참여 또는 STEP 3·4의 + 버튼에서 사용합니다.
+  /// 이 메서드는 중단 상태만 해제합니다.
+  /// 신청 승인이나 홈 활동 추가 처리는 해당 기능에서 별도로 수행합니다.
+  void clearActivityStopped({
+    required int step,
+    required String activityId,
+  }) {
+    final changed =
+        _stoppedActivityIds[step]?.remove(activityId) ?? false;
+
+    if (changed) {
+      notifyListeners();
+    }
   }
 
   // ───────────────────────── 활동 기록
@@ -246,6 +321,49 @@ class AppState extends ChangeNotifier {
     }
     notifyListeners();
   }
+
+  // ───────────────────────── 홈 활동 완료 상태 (STEP 2~4)
+
+  // STEP별로 완료한 활동 ID를 저장합니다.
+  // 목록에 ID가 있으면 완료, 없으면 미완료입니다.
+  final Map<int, Set<String>> _completedHomeActivityIds = {
+    2: <String>{},
+    3: <String>{},
+    4: <String>{},
+  };
+
+  bool isHomeActivityDone({
+    required int step,
+    required String activityId,
+  }) {
+    return _completedHomeActivityIds[step]?.contains(activityId) ?? false;
+  }
+
+    void toggleHomeActivityDone({
+    required int step,
+    required String activityId,
+  }) {
+    final completedIds = _completedHomeActivityIds[step];
+
+    if (completedIds == null || activityId.isEmpty) return;
+
+    // 그만둔 활동은 완료 처리할 수 없습니다.
+    if (isActivityStopped(
+      step: step,
+      activityId: activityId,
+    )) {
+      return;
+    }
+
+    if (completedIds.contains(activityId)) {
+      completedIds.remove(activityId);
+    } else {
+      completedIds.add(activityId);
+    }
+
+    notifyListeners();
+  }
+
 }
 
 
