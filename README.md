@@ -69,7 +69,7 @@ test/widget_test.dart           기본 흐름 테스트
 | 홈 | 이름(프로필) | 활동 기록 |
 | 홈 | 기록하기 | 기록 작성 → AI 정리 결과 → 저장 → 활동 기록 |
 | 홈 | 미션 수정 | 미션 수정 |
-| 홈 | 종 아이콘 | 알림 |
+| 홈 | 종 아이콘 | 알림 → 마감 임박은 홈, STEP 1 알림은 STEP 1, 나머지는 프로그램 상세 |
 | STEP 2 | 팀 카드 / 팀원 아바타 | 팀 신청(모집 글 상세) / 팀원 프로필 |
 | STEP 2 | 글쓰기 | 팀원 모집 글쓰기 → '내가 쓴 글' 탭 |
 | STEP 2 | 팀 신청 완료 | '내가 신청한 글' 탭 |
@@ -77,7 +77,7 @@ test/widget_test.dart           기본 흐름 테스트
 | 프로그램 상세 | 북마크 / 신청하러 가기 | 스크랩 탭에 추가 / 신청 링크 복사 |
 | STEP 3·4 | 북마크 | 스크랩 탭에 추가 |
 | STEP 4 | 오른쪽 위 지원현황 | 취업 지원현황 (단계·메모 관리) |
-| 스크랩 | 지원했어요 | 취업 지원현황에 추가 |
+| 스크랩 | 지원했어요 | 취업 지원현황에 추가 (지원한 공고는 스크랩을 지워도 지원현황에 남음) |
 | STEP 3·4 (기관) | 글쓰기 | 프로그램 등록 |
 | 홈 (기관) | 등록한 프로그램 카드 | 프로그램 상세 (검수 전) |
 | 전체 | 서비스 목록 | 각 화면 |
@@ -95,14 +95,33 @@ test/widget_test.dart           기본 흐름 테스트
 
 화면 안의 노란 **TODO 박스**와 코드의 `// TODO(...)` 주석이 남은 작업입니다.
 
-## 프로그램 상세 데이터
+## 프로그램 · 정책 데이터 (온통청년)
 
-`models.dart` 의 `ProgramDetail` 은 `hangeoreum_data/programs_ontong_v2.json` 의 `programs[]` 한 건과 같은 모양입니다.
+STEP 3 · 도전 목록과 알림은 **온통청년 실제 정책**입니다. 나머지(STEP 1·2·4, 기록 등)는 샘플이에요.
 
-- 실제 데이터 연결: `ProgramDetail.fromJson(json)` → `program_detail_screen.dart` 의 `findProgramDetail` 만 교체
-- 샘플: `mock_data.dart` 의 `mockProgramDetails` (STEP 3 공고 o1~o4). 없는 공고는 카드 정보로 간단히 채움
-- 자격 조건 배열이 `[]` 이면 화면에 '제한 없음'으로 모아서 표시
-- 온통청년 이용 조건에 따라 화면 아래에 출처와 원문 링크를 표시
+- `models.dart` 의 `ProgramDetail` = `hangeoreum_data/programs_ontong_v3.json` 의 `programs[]` 한 건 (v3 스키마)
+- `lib/data/ontong_programs.dart` 는 **자동 생성 파일**이라 직접 고치지 않아요. 지금 신청 가능한 정책만 골라 넣어요.
+- 샘플 날짜(스크랩·모집 마감 등)는 앱을 켠 날 기준으로 계산돼서 항상 최근처럼 보여요. STEP 1 미션에는 마감일이 없어요.
+- 백엔드가 붙으면 `ProgramDetail.fromJson(json)` 으로 서버 응답을 읽고 `program_detail_screen.dart` 의 `findProgramDetail` 만 바꾸면 돼요.
+- 온통청년 이용 조건에 따라 상세 화면 아래에 출처와 원문 링크를 표시해요.
+
+**데이터 새로 받기** (인증키는 코드·깃에 넣지 말고 환경변수로)
+
+```powershell
+cd ~/openSource/hangeoreum_data
+$env:ONTONG_API_KEY="발급받은키"; python fetch_ontong.py   # API 수집 → raw/
+python convert_ontong_v3.py                                  # raw → programs_ontong_v3.json
+cd ../Hangeoleum-UI
+python tool/ontong_to_dart.py ../hangeoreum_data/programs_ontong_v3.json   # → lib/data/ontong_programs.dart
+```
+
+## 알림 이동
+
+| 알림 | 누르면 |
+| --- | --- |
+| 마감 임박 | 홈 |
+| STEP 1 미션 알림 (`Notice.step == 1`) | STEP 탭의 STEP 1 |
+| 그 밖의 정책 소식 (`Notice.programId`) | 프로그램 상세 |
 
 ## 코드 규칙
 

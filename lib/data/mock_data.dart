@@ -1,5 +1,22 @@
 // 개발용 샘플 데이터 (화면 흐름도 시안 내용 기준). 실제 데이터는 API 연결 후 교체합니다.
+// - STEP 3 · 도전과 알림은 온통청년 실제 정책 (ontong_programs.dart, tool/ontong_to_dart.py 로 생성)
+// - 날짜는 앱을 실행한 날 기준으로 계산해서 항상 '최근' 데이터처럼 보이게 합니다 (_daysAgo, _inDays)
 import '../models/models.dart';
+import 'ontong_programs.dart';
+
+/// 오늘 0시 기준 [days] 일 뒤 (음수면 전)
+DateTime _day(int days) {
+  final now = DateTime.now();
+  return DateTime(now.year, now.month, now.day + days);
+}
+
+DateTime _daysAgo(int days) => _day(-days);
+
+/// 오늘 기준 [days] 일 뒤를 'YYYY-MM-DD' 로
+String _inDays(int days) {
+  final d = _day(days);
+  return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+}
 
 const interestOptions = ['IT·데이터', '디자인·영상', '사무·행정', '마케팅·기획', '서비스·판매', '아직 잘 모르겠어요'];
 
@@ -28,14 +45,15 @@ const mockUser = AppUser(
   currentStep: 1,
 );
 
-final mockMissions = <Mission>[
-  const Mission(id: 'm1', title: '취업 유튜브 하나 보기', minutes: 10, category: '취업', status: MissionStatus.done),
-  Mission(id: 'm2', title: '청년 적금 알아보기', minutes: 5, category: '돈', status: MissionStatus.doing, due: DateTime(2026, 10, 18)),
-  Mission(id: 'm3', title: '동네 청년센터 동아리 찾아보기', minutes: 20, category: '모임', status: MissionStatus.doing, due: DateTime(2026, 10, 20)),
-  const Mission(id: 'm4', title: '관심 기업 공고 하나 읽어보기', minutes: 10, category: '취업'),
-  const Mission(id: 'm5', title: '청년 지원 정책 하나 읽어보기', minutes: 10, category: '정책'),
-  const Mission(id: 'm6', title: '청년센터 프로그램 둘러보기', minutes: 15, category: '모임'),
-  const Mission(id: 'm7', title: '매일 정해진 시간에 일어나기', minutes: 5, category: '생활'),
+// STEP 1 미션은 마감일이 없습니다 (작은 성취 — 부담 없이 시작)
+const mockMissions = <Mission>[
+  Mission(id: 'm1', title: '취업 유튜브 하나 보기', minutes: 10, category: '취업', status: MissionStatus.done),
+  Mission(id: 'm2', title: '청년 적금 알아보기', minutes: 5, category: '돈', status: MissionStatus.doing),
+  Mission(id: 'm3', title: '동네 청년센터 동아리 찾아보기', minutes: 20, category: '모임', status: MissionStatus.doing),
+  Mission(id: 'm4', title: '관심 기업 공고 하나 읽어보기', minutes: 10, category: '취업'),
+  Mission(id: 'm5', title: '청년 지원 정책 하나 읽어보기', minutes: 10, category: '정책'),
+  Mission(id: 'm6', title: '청년센터 프로그램 둘러보기', minutes: 15, category: '모임'),
+  Mission(id: 'm7', title: '매일 정해진 시간에 일어나기', minutes: 5, category: '생활'),
 ];
 
 const mockRecords = <ActivityRecord>[
@@ -106,7 +124,7 @@ const mockMembers = <TeamMember>[
   TeamMember(id: 'tm6', name: '현우', intro: '파이썬 조금 할 줄 알아요. 데이터 정리 맡을게요.', interests: ['IT·데이터'], step: 3, missionsDone: 20, records: 11),
 ];
 
-const mockTeamPosts = <TeamPost>[
+final mockTeamPosts = <TeamPost>[
   TeamPost(
     id: 'p1',
     category: '데이터·엑셀',
@@ -123,7 +141,7 @@ const mockTeamPosts = <TeamPost>[
         '1~2주차에는 함수·피벗을 같이 익히고, 3~4주차에는 각자 가계부 시트를 완성해서 서로 피드백해요.\n'
         '결과물은 포트폴리오와 활동 기록에 넣을 수 있게 정리할 예정이에요.',
     wantedRoles: ['엑셀·데이터', '기획', '상관없음'],
-    deadline: '2026-10-25',
+    deadline: _inDays(6),
   ),
   TeamPost(
     id: 'p2',
@@ -142,7 +160,7 @@ const mockTeamPosts = <TeamPost>[
         '아이디어는 같이 정하고, 자료 조사 → 기획서 → 발표 자료 순서로 진행할 거예요.\n'
         '디자인을 맡아 줄 분이 있으면 정말 좋겠어요!',
     wantedRoles: ['디자이너', '발표'],
-    deadline: '2026-10-22',
+    deadline: _inDays(3),
   ),
   TeamPost(
     id: 'p3',
@@ -176,38 +194,86 @@ const mockTeamPosts = <TeamPost>[
     description: '각자 포트폴리오를 만들되 매주 한 번 모여서 서로 피드백해요.\n'
         '디자인·개발·기획 누구든 괜찮아요. 노션이나 피그마로 완성하는 게 목표예요.',
     wantedRoles: ['상관없음'],
-    deadline: '2026-10-30',
+    deadline: _inDays(10),
   ),
 ];
 
-const mockOpportunities = <Opportunity>[
-  // STEP 3 · 도전
-  Opportunity(id: 'o1', step: 3, kind: OpportunityKind.bootcamp, field: '데이터 분석', title: '데이터 분석 입문 부트캠프', org: '서울청년센터', region: '온라인', dday: 5, period: '10.01 - 10.24'),
-  Opportunity(id: 'o2', step: 3, kind: OpportunityKind.contest, field: '기획', title: '공공데이터 활용 아이디어 공모전', org: '행정안전부', region: '온라인', dday: 12, period: '10.05 - 10.27'),
-  Opportunity(id: 'o3', step: 3, kind: OpportunityKind.activity, field: '데이터', title: '청년 데이터 서포터즈 3기 모집 (전국 대학생·청년 대상 온라인 활동)', org: '청년재단', region: '서울', dday: 20, period: '10.15 - 11.04'),
-  Opportunity(id: 'o4', step: 3, kind: OpportunityKind.education, field: '엑셀·파이썬', title: '엑셀·파이썬 기초 과정', org: '고용노동부', region: '서울', dday: 15, period: '10.10 - 10.30'),
-  // STEP 4 · 취업
-  Opportunity(id: 'o5', step: 4, kind: OpportunityKind.job, field: '데이터 입력', title: '데이터 입력 사원 모집', org: '서울청년센터', region: '서울', dday: 5, employment: '계약직', career: '신입'),
-  Opportunity(id: 'o6', step: 4, kind: OpportunityKind.job, field: '사무 보조', title: '사무 보조 (문서·자료 정리)', org: '한빛물류', region: '경기', dday: 9, employment: '정규직', career: '신입'),
-  Opportunity(id: 'o7', step: 4, kind: OpportunityKind.job, field: '데이터 관리', title: '청년 데이터 모니터링 요원 (공공데이터 포털 운영 지원 및 품질 점검 업무 담당)', org: '청년재단', region: '서울', dday: 14, employment: '계약직', career: '경력무관'),
-  Opportunity(id: 'o8', step: 4, kind: OpportunityKind.job, field: '데이터 검수', title: 'AI 학습용 데이터 검수 담당', org: '가온데이터', region: '서울', dday: 20, employment: '인턴', career: '신입'),
+// STEP 3 · 도전: 온통청년 실제 정책 중 지금 신청할 수 있는 것
+// STEP 4 · 취업: 아직 채용 API(워크넷) 연결 전이라 샘플
+final mockOpportunities = <Opportunity>[
+  for (final p in ontongStep3Programs)
+    if (!p.isClosedOn(_day(0))) _opportunityOf(p, step: 3),
+  // STEP 4 · 취업 (샘플)
+  const Opportunity(id: 'o5', step: 4, kind: OpportunityKind.job, field: '데이터 입력', title: '데이터 입력 사원 모집', org: '서울청년센터', region: '서울', dday: 5, employment: '계약직', career: '신입'),
+  const Opportunity(id: 'o6', step: 4, kind: OpportunityKind.job, field: '사무 보조', title: '사무 보조 (문서·자료 정리)', org: '한빛물류', region: '경기', dday: 9, employment: '정규직', career: '신입'),
+  const Opportunity(id: 'o7', step: 4, kind: OpportunityKind.job, field: '데이터 관리', title: '청년 데이터 모니터링 요원 (공공데이터 포털 운영 지원 및 품질 점검 업무 담당)', org: '청년재단', region: '서울', dday: 14, employment: '계약직', career: '경력무관'),
+  const Opportunity(id: 'o8', step: 4, kind: OpportunityKind.job, field: '데이터 검수', title: 'AI 학습용 데이터 검수 담당', org: '가온데이터', region: '서울', dday: 20, employment: '인턴', career: '신입'),
 ];
+
+/// 온통청년 정책 → STEP 3·4 공고 카드
+Opportunity _opportunityOf(ProgramDetail p, {required int step}) {
+  String md(String ymd) => ymd.substring(5).replaceAll('-', '.');
+  final bs = p.bizStart, be = p.bizEnd;
+  return Opportunity(
+    id: p.id,
+    step: step,
+    kind: _kindOf(p),
+    field: p.subCategory ?? p.category ?? '기타',
+    title: p.name,
+    org: p.organization ?? '',
+    region: p.regionLabel,
+    dday: p.ddayOn(_day(0)) ?? 0,
+    period: bs != null && be != null ? '${md(bs)} - ${md(be)}' : null,
+  );
+}
+
+/// 공고 유형 추정 (LLM 분류 전 임시 규칙): 이름·분류로 공모전 / 부트캠프 / 교육 / 대외활동
+OpportunityKind _kindOf(ProgramDetail p) {
+  bool has(List<String> words) => words.any((w) => p.name.contains(w) || p.keywords.contains(w));
+  if (has(['공모전', '경진대회', '챌린지', '해커톤'])) return OpportunityKind.contest;
+  if (has(['부트캠프', '아카데미', '캠프', '사관학교'])) return OpportunityKind.bootcamp;
+  if (p.categories.contains('교육･직업훈련') || has(['교육', '훈련', '강의', '과정', '양성'])) return OpportunityKind.education;
+  return OpportunityKind.activity;
+}
 
 final mockScraps = <Scrap>[
-  Scrap(opportunityId: 'o5', applied: true, scrappedAt: DateTime(2026, 10, 12), appliedAt: DateTime(2026, 10, 13), stage: ApplyStage.document),
-  Scrap(opportunityId: 'o6', applied: true, scrappedAt: DateTime(2026, 10, 8), appliedAt: DateTime(2026, 10, 9), stage: ApplyStage.interview, memo: '10/22(수) 오후 2시 대면 면접'),
-  Scrap(opportunityId: 'o7', scrappedAt: DateTime(2026, 10, 14)),
+  Scrap(opportunityId: 'o5', applied: true, scrappedAt: _daysAgo(9), appliedAt: _daysAgo(8), stage: ApplyStage.document),
+  Scrap(opportunityId: 'o6', applied: true, scrappedAt: _daysAgo(12), appliedAt: _daysAgo(11), stage: ApplyStage.interview, memo: '${_md(_weekdayFrom(3))} 오후 2시 대면 면접'),
+  Scrap(opportunityId: 'o7', scrappedAt: _daysAgo(2)),
 ];
 
-const mockNotices = <Notice>[
-  Notice(id: 'n1', group: 'deadline', category: '정책', title: '청년도전지원사업 참여자 모집', meta: '서울 · 만 19-34세', dday: 3),
-  Notice(id: 'n2', group: 'deadline', category: '적금', title: '청년도약계좌 가입 신청', meta: '만 19-34세 · 소득 조건 충족', dday: 5),
-  Notice(id: 'n3', group: 'new', category: '캠프', title: '청년 리더십 캠프 참가자 모집', meta: '서울 · 2박 3일 · 무료'),
-  Notice(id: 'n4', group: 'new', category: '정책', title: '청년 월세 지원 신청 안내', meta: '서울 · 만 19-34세'),
-  Notice(id: 'n5', group: 'new', category: '적금', title: '청년내일저축계좌 모집', meta: '소득 조건 충족 · 전국', read: true),
-  Notice(id: 'n6', group: 'new', category: '정책', title: '청년 면접 수당 신청 안내', meta: '서울 · 만 19-34세', read: true),
-  Notice(id: 'n7', group: 'new', category: '캠프', title: '청년 커리어 캠프 참가자 모집', meta: '서울 · 1박 2일 · 무료', read: true),
+/// 오늘부터 [days] 일 뒤 이후의 첫 평일
+DateTime _weekdayFrom(int days) {
+  var d = _day(days);
+  while (d.weekday > DateTime.friday) {
+    d = d.add(const Duration(days: 1));
+  }
+  return d;
+}
+
+String _md(DateTime d) => '${d.month}/${d.day}(${'월화수목금토일'[d.weekday - 1]})';
+
+// 알림: 마감 임박 → 홈 / STEP 1 → STEP 1 화면 / 나머지 → 프로그램 상세
+final mockNotices = <Notice>[
+  for (final (i, p) in ontongDeadlinePrograms.indexed)
+    if ((p.ddayOn(_day(0)) ?? -1) >= 0)
+      Notice(id: 'nd$i', group: 'deadline', category: p.category ?? '정책', title: p.name, meta: _noticeMeta(p), dday: p.ddayOn(_day(0)), programId: p.id),
+  const Notice(id: 'n-step1', group: 'new', category: '미션', title: '오늘 해 볼 만한 STEP 1 미션이 있어요', meta: '5~20분 · 작은 성취', step: 1),
+  for (final (i, p) in ontongNewPrograms.indexed)
+    Notice(id: 'nn$i', group: 'new', category: p.category ?? '정책', title: p.name, meta: _noticeMeta(p), programId: p.id),
+  if (ontongStep3Programs.isNotEmpty)
+    Notice(
+      id: 'n-step3',
+      group: 'new',
+      category: ontongStep3Programs.first.category ?? '정책',
+      title: ontongStep3Programs.first.name,
+      meta: _noticeMeta(ontongStep3Programs.first),
+      programId: ontongStep3Programs.first.id,
+      read: true,
+    ),
 ];
+
+String _noticeMeta(ProgramDetail p) => [p.regionLabel, if (p.minAge != null || p.maxAge != null) p.ageLabel].join(' · ');
 
 // ── 조회 도우미 (API 연결 시 서버 조회로 교체)
 TeamMember? findMember(String id) {
@@ -227,6 +293,16 @@ TeamPost? findTeamPost(String id) {
 Opportunity? findOpportunity(String id) {
   for (final o in mockOpportunities) {
     if (o.id == id) return o;
+  }
+  return null;
+}
+
+/// 온통청년 정책 (STEP 3 · 알림에 쓰는 것) 을 id(정책번호)로 찾기
+ProgramDetail? findOntongProgram(String id) {
+  for (final list in [ontongStep3Programs, ontongDeadlinePrograms, ontongNewPrograms]) {
+    for (final p in list) {
+      if (p.id == id) return p;
+    }
   }
   return null;
 }
@@ -303,7 +379,7 @@ const _recordPool = [
 ];
 
 List<DoneMission> mockDoneMissionsOf(TeamMember m) {
-  final base = DateTime(2026, 10, 18);
+  final base = _daysAgo(1);
   return [
     for (var i = 0; i < m.missionsDone; i++)
       if (_missionPool[i % _missionPool.length] case (final step, final title, final category, final minutes))
@@ -318,7 +394,7 @@ List<DoneMission> mockDoneMissionsOf(TeamMember m) {
 }
 
 List<ActivityRecord> mockRecordsOf(TeamMember m) {
-  final base = DateTime(2026, 10, 17);
+  final base = _daysAgo(2);
   String fmt(DateTime d) => '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
   return [
     for (var i = 0; i < m.records; i++)
@@ -333,182 +409,3 @@ List<ActivityRecord> mockRecordsOf(TeamMember m) {
         ),
   ];
 }
-
-// ── 프로그램 상세 (온통청년 → 한걸음 '프로그램' v2 형식 샘플)
-// 실제 데이터로 바꿀 때: programs_ontong_v2.json 의 programs[] 한 건 → ProgramDetail.fromJson(json)
-// key 는 공고 id (mockOpportunities). 여기 없는 공고는 상세 화면이 카드 정보로 간단히 채웁니다.
-// 날짜는 공고 카드의 D-day 와 맞도록 오늘 기준으로 만듭니다 (_inDays).
-String _inDays(int days) {
-  final now = DateTime.now();
-  final d = DateTime(now.year, now.month, now.day + days);
-  return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
-}
-
-const _allSido = ['11', '26', '27', '28', '29', '30', '31', '36', '41', '43', '44', '46', '47', '48', '50', '51', '52'];
-
-final mockProgramDetails = <String, ProgramDetail>{
-  'o1': ProgramDetail(
-    id: 'o1',
-    originalId: '20261020005400212301',
-    lastModified: '2026-10-20 14:02:11',
-    name: '데이터 분석 입문 부트캠프',
-    organization: '서울청년센터',
-    supervisingOrg: '서울특별시',
-    providerGroup: '지자체',
-    provisionMethod: '프로그램',
-    content: '쉬고 있는 청년이 데이터 분석 기초를 4주 동안 온라인으로 익히는 부트캠프입니다.\n\n'
-        '- 1주차: 엑셀로 데이터 정리하기 (정렬·필터·피벗 테이블)\n'
-        '- 2주차: 기초 통계와 차트 만들기\n'
-        '- 3주차: 파이썬(pandas)으로 공공데이터 분석 실습\n'
-        '- 4주차: 미니 프로젝트 발표 및 수료\n\n'
-        '수료 기준(출석 80% 이상, 미니 프로젝트 제출)을 채우면 수료증과 함께 학습 지원금 5만원을 드립니다. '
-        '수업은 평일 저녁 7시~9시 실시간 온라인으로 진행되고, 놓친 수업은 다시보기로 들을 수 있습니다.',
-    category: '교육･직업훈련',
-    categories: ['교육･직업훈련'],
-    subCategory: '온·오프라인교육',
-    subCategories: ['온·오프라인교육', '미래역량강화'],
-    keywords: ['교육지원', '디지털', '취업'],
-    regionTopOrg: '서울특별시',
-    regionSidoCodes: ['11'],
-    regionZipCodes: ['11110', '11440', '11500'],
-    minAge: 19,
-    maxAge: 39,
-    jobConditions: ['미취업자'],
-    incomeConditionType: '무관',
-    extraEligibility: '서울시에 살거나 서울 소재 대학을 다니는(졸업한) 청년\n최근 6개월 동안 일이나 교육 활동을 하지 않은 청년 우선 선발',
-    excludedTargets: '올해 서울시 청년 데이터 교육 과정을 이미 수료한 사람',
-    applyPeriodType: '특정기간',
-    applyStart: _inDays(-14),
-    applyEnd: _inDays(5),
-    bizPeriodType: '특정기간',
-    bizStart: _inDays(13),
-    bizEnd: _inDays(38),
-    applyUrl: 'https://youth.seoul.go.kr',
-    refUrls: ['https://youth.seoul.go.kr'],
-    applyMethod: '청년몽땅정보통 회원가입 후 온라인 신청서 작성',
-    screeningMethod: '서류 검토 후 개별 문자 안내 (선착순 아님)',
-    documents: '신청서(온라인 작성), 주민등록초본 1부',
-    etc: '노트북이 없으면 신청서에 적어 주세요. 대여 가능 여부를 따로 안내합니다.',
-    step: 3,
-    difficulty: '보통',
-    durationMinutes: 120,
-    aiConfidence: 0.86,
-    reviewStatus: '검수 완료',
-  ),
-  'o2': ProgramDetail(
-    id: 'o2',
-    originalId: '20261005005400211877',
-    lastModified: '2026-10-05 09:30:00',
-    name: '공공데이터 활용 아이디어 공모전',
-    organization: '행정안전부',
-    providerGroup: '중앙부처',
-    provisionMethod: '프로그램',
-    content: '공공데이터를 활용해 생활 속 문제를 해결하는 아이디어를 모집합니다.\n\n'
-        '- 부문: 아이디어 기획 / 서비스 개발\n'
-        '- 시상: 대상 1팀(500만원), 최우수상 2팀(각 300만원), 우수상 5팀(각 100만원)\n'
-        '- 수상작은 공공데이터 창업 지원 프로그램 연계 기회 제공\n\n'
-        '개인 또는 5명 이하 팀으로 참가할 수 있고, 기획서(10쪽 이내)를 제출하면 됩니다.',
-    category: '참여･기반',
-    categories: ['참여･기반'],
-    subCategory: '청년참여',
-    subCategories: ['청년참여'],
-    keywords: ['공모전', '디지털'],
-    isNationwide: true,
-    regionSidoCodes: _allSido,
-    minAge: 19,
-    maxAge: 39,
-    incomeConditionType: '무관',
-    extraEligibility: '팀 참가 시 팀원 절반 이상이 만 19~39세여야 함',
-    excludedTargets: '다른 공모전에서 상을 받은 아이디어를 그대로 낸 경우',
-    applyPeriodType: '특정기간',
-    applyStart: _inDays(-29),
-    applyEnd: _inDays(12),
-    bizPeriodType: '기타',
-    bizPeriodText: '마감 후 한 달 안에 결과 발표, 시상식 일정은 따로 안내',
-    applyUrl: 'https://www.data.go.kr',
-    refUrls: ['https://www.data.go.kr'],
-    applyMethod: '공공데이터포털 공모전 페이지에서 참가 신청서와 기획서 업로드',
-    screeningMethod: '1차 서류 심사 → 2차 발표 심사',
-    documents: '참가 신청서, 아이디어 기획서(10쪽 이내), 개인정보 수집 동의서',
-    step: 3,
-    difficulty: '어려움',
-    durationMinutes: 600,
-    aiConfidence: 0.72,
-    reviewStatus: '검수 대기',
-  ),
-  'o3': ProgramDetail(
-    id: 'o3',
-    originalId: '20261015005400212045',
-    lastModified: '2026-10-15 11:12:40',
-    name: '청년 데이터 서포터즈 3기 모집',
-    organization: '청년재단',
-    supervisingOrg: '국무조정실',
-    providerGroup: '중앙부처',
-    provisionMethod: '프로그램',
-    content: '청년 정책 데이터를 직접 살펴보고, 청년 눈높이로 소개하는 콘텐츠를 만드는 서포터즈입니다.\n\n'
-        '- 활동: 월 2회 온라인 미션 (데이터 읽고 카드뉴스·짧은 글 만들기)\n'
-        '- 혜택: 월 활동비 10만원, 우수 활동자 표창, 수료증\n'
-        '- 발대식·해단식만 서울에서 오프라인으로 진행 (교통비 지원)',
-    category: '참여･기반',
-    categories: ['참여･기반', '일자리'],
-    subCategory: '청년참여',
-    subCategories: ['청년참여'],
-    keywords: ['대외활동', '활동비'],
-    isNationwide: true,
-    regionSidoCodes: _allSido,
-    minAge: 19,
-    maxAge: 34,
-    incomeConditionType: '무관',
-    applyPeriodType: '특정기간',
-    applyStart: _inDays(-19),
-    applyEnd: _inDays(20),
-    bizPeriodType: '특정기간',
-    bizStart: _inDays(28),
-    bizEnd: _inDays(148),
-    applyUrl: 'https://www.kyf.or.kr',
-    refUrls: ['https://www.kyf.or.kr'],
-    applyMethod: '청년재단 누리집 공지사항의 신청서 작성 후 이메일 제출',
-    screeningMethod: '서류 심사 후 합격자 개별 안내',
-    documents: '지원서, 자기소개(500자 이내)',
-    reviewStatus: '검수 대기',
-  ),
-  'o4': ProgramDetail(
-    id: 'o4',
-    originalId: '20261010005400211990',
-    lastModified: '2026-10-10 16:45:03',
-    name: '엑셀·파이썬 기초 과정',
-    organization: '고용노동부',
-    supervisingOrg: '고용노동부',
-    providerGroup: '중앙부처',
-    provisionMethod: '바우처',
-    content: '국민내일배움카드로 듣는 사무 자동화 기초 과정입니다. 처음 배우는 사람도 따라올 수 있도록 엑셀 기본 함수부터 시작해 '
-        '파이썬으로 반복 업무를 자동화하는 것까지 다룹니다.\n\n'
-        '훈련비의 일부를 카드로 지원하고, 출석률을 채우면 훈련장려금을 받을 수 있습니다.',
-    category: '교육･직업훈련',
-    categories: ['교육･직업훈련'],
-    subCategory: '교육비지원',
-    subCategories: ['교육비지원'],
-    keywords: ['교육지원', '바우처'],
-    regionTopOrg: '고용노동부',
-    regionSidoCodes: ['11', '41', '28'],
-    minAge: 15,
-    maxAge: 34,
-    jobConditions: ['미취업자', '단기근로자'],
-    incomeConditionType: '연소득',
-    incomeMax: 5000,
-    applyPeriodType: '상시',
-    bizPeriodType: '특정기간',
-    bizStart: _inDays(-24),
-    bizEnd: _inDays(58),
-    applyUrl: 'https://www.work24.go.kr',
-    refUrls: ['https://www.work24.go.kr'],
-    applyMethod: '고용24에서 국민내일배움카드 발급 후 과정 검색해 수강 신청',
-    screeningMethod: '훈련기관 상담 후 수강 확정',
-    documents: '국민내일배움카드',
-    step: 3,
-    difficulty: '쉬움',
-    durationMinutes: 60,
-    aiConfidence: 0.91,
-    reviewStatus: '검수 완료',
-  ),
-};

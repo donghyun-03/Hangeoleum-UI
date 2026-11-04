@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
+import 'package:hangeoleum/data/mock_data.dart';
 import 'package:hangeoleum/main.dart';
 import 'package:hangeoleum/models/models.dart';
 import 'package:hangeoleum/router/main_tabs.dart';
@@ -64,6 +65,32 @@ Future<void> _flush(WidgetTester tester) async {
 }
 
 void _registerStepTests() {
+  test('스크랩: 지원한 공고는 스크랩을 지워도 지원현황에 남음', () {
+    final s = AppState();
+    bool inScrap(String id) => s.scraps.any((x) => x.opportunityId == id);
+    bool inApplied(String id) => s.appliedScraps.any((x) => x.opportunityId == id);
+
+    // o5: 지원 완료(서류 심사) → 스크랩만 지움
+    s.toggleScrap('o5');
+    expect(inScrap('o5'), isFalse);
+    expect(inApplied('o5'), isTrue);
+    // 다시 스크랩해도 지원 단계 그대로
+    s.toggleScrap('o5');
+    expect(inScrap('o5'), isTrue);
+    expect(s.scraps.firstWhere((x) => x.opportunityId == 'o5').stage, ApplyStage.document);
+
+    // o6: 스크랩 지운 뒤 지원까지 취소하면 완전히 사라짐
+    s.toggleScrap('o6');
+    s.setApplied('o6', false);
+    expect(inScrap('o6'), isFalse);
+    expect(inApplied('o6'), isFalse);
+
+    // o7: 지원 안 한 스크랩은 지우면 끝
+    s.toggleScrap('o7');
+    expect(inScrap('o7'), isFalse);
+    expect(inApplied('o7'), isFalse);
+  });
+
   testWidgets('STEP 2: 팀 신청하면 내가 신청한 글에 보임', (tester) async {
     await _enterStep(tester, 2);
     await tester.tap(find.text('엑셀로 가계부 자동화 시트 같이 만들어요'));
@@ -118,23 +145,48 @@ void _registerStepTests() {
     expect(find.text('카드를 누르면 자세한 내용을 볼 수 있어요.'), findsOneWidget);
   });
 
-  testWidgets('STEP 3: 공고 카드 → 프로그램 상세 → 스크랩', (tester) async {
+  testWidgets('STEP 3: 온통청년 정책 카드 → 프로그램 상세 → 스크랩', (tester) async {
+    final first = mockOpportunities.firstWhere((o) => o.step == 3);
     await _enterStep(tester, 3);
-    await tester.tap(find.text('데이터 분석 입문 부트캠프').first);
+    await tester.tap(find.text(first.title).first);
     await tester.pumpAndSettle();
 
     expect(find.text('프로그램 상세'), findsOneWidget);
-    expect(find.text('지원 내용'), findsOneWidget);
     expect(find.text('지원 대상'), findsOneWidget);
     expect(find.text('내 조건으로 보면'), findsOneWidget);
-    expect(find.text('해당돼요'), findsNWidgets(2)); // 만 26세 · 서울 → 만 19~39세 · 서울
-    expect(find.text('신청하러 가기'), findsOneWidget);
+    await tester.dragUntilVisible(find.textContaining('출처 온통청년'), find.byType(ListView), const Offset(0, -300));
     expect(find.textContaining('출처 온통청년'), findsOneWidget);
 
     await tester.tap(find.byTooltip('스크랩'));
     await tester.pumpAndSettle();
     expect(find.byTooltip('스크랩 취소'), findsOneWidget);
     await _flush(tester);
+  });
+
+  testWidgets('알림: STEP 1 알림 → STEP 1 화면, 정책 알림 → 프로그램 상세', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(400, 2400));
+    await tester.pumpWidget(const HangeoleumApp());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('청년 · 진단 완료 → 홈'));
+    await tester.pumpAndSettle();
+
+    // 홈 오른쪽 위 종 아이콘 (tooltip '알림 N건')
+    final bell = find.byWidgetPredicate((w) => w is IconButton && (w.tooltip ?? '').startsWith('알림'));
+    await tester.tap(bell);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('오늘 해 볼 만한 STEP 1 미션이 있어요'));
+    await tester.pumpAndSettle();
+    expect(find.text('알림'), findsNothing);
+    expect(find.textContaining('미션 '), findsWidgets); // STEP 1 미션 목록
+
+    await tester.tap(find.text('홈').last);
+    await tester.pumpAndSettle();
+    await tester.tap(bell);
+    await tester.pumpAndSettle();
+    final policy = mockNotices.firstWhere((n) => n.group == 'new' && n.programId != null);
+    await tester.tap(find.text(policy.title).first);
+    await tester.pumpAndSettle();
+    expect(find.text('프로그램 상세'), findsOneWidget);
   });
 
   testWidgets('STEP 4: 상세 데이터 없는 공고도 상세 화면이 열림', (tester) async {

@@ -107,7 +107,7 @@ class _ScrapCard extends StatelessWidget {
             tooltip: '스크랩 취소',
             onPressed: () {
               state.toggleScrap(o.id);
-              showToast(context, '스크랩을 취소했어요');
+              showToast(context, scrap.applied ? '스크랩을 취소했어요. 지원현황에는 그대로 남아요' : '스크랩을 취소했어요');
             },
             icon: const Icon(Icons.bookmark, color: AppColors.green),
           ),

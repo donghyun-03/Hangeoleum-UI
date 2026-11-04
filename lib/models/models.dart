@@ -384,6 +384,10 @@ class Scrap {
   /// 지원현황 메모 (면접 일정 등)
   final String memo;
 
+  /// 스크랩 탭에 보이는지 (북마크 상태).
+  /// 지원한 공고는 스크랩을 지워도 지원현황에 남도록, 지우지 않고 false 로만 바꿉니다.
+  final bool bookmarked;
+
   const Scrap({
     required this.opportunityId,
     this.applied = false,
@@ -391,6 +395,7 @@ class Scrap {
     this.appliedAt,
     this.stage,
     this.memo = '',
+    this.bookmarked = true,
   });
 
   Scrap copyWith({
@@ -398,6 +403,7 @@ class Scrap {
     DateTime? appliedAt,
     ApplyStage? stage,
     String? memo,
+    bool? bookmarked,
     bool clearApply = false,
   }) => Scrap(
     opportunityId: opportunityId,
@@ -406,6 +412,7 @@ class Scrap {
     appliedAt: clearApply ? null : (appliedAt ?? this.appliedAt),
     stage: clearApply ? null : (stage ?? this.stage),
     memo: memo ?? this.memo,
+    bookmarked: bookmarked ?? this.bookmarked,
   );
 }
 
@@ -443,14 +450,24 @@ class Program {
 }
 
 // ── 알림
+/// 알림을 눌렀을 때 가는 곳
+///   deadline 그룹(마감 임박) → 홈
+///   step == 1 → STEP 1 화면
+///   그 밖 → programId 의 프로그램 상세
 class Notice {
   final String id;
   final String group; // 'deadline' | 'new'
-  final String category; // 정책, 적금, 캠프
+  final String category; // 정책, 미션, 교육 …
   final String title;
   final String meta;
   final int? dday;
   final bool read;
+
+  /// STEP 관련 알림이면 단계 (1 이면 STEP 1 화면으로 이동)
+  final int? step;
+
+  /// 상세 화면으로 갈 프로그램 id (공고 id 또는 온통청년 정책번호)
+  final String? programId;
 
   const Notice({
     required this.id,
@@ -460,6 +477,8 @@ class Notice {
     required this.meta,
     this.dday,
     this.read = false,
+    this.step,
+    this.programId,
   });
 
   Notice markRead() => Notice(
@@ -470,12 +489,15 @@ class Notice {
     meta: meta,
     dday: dday,
     read: true,
+    step: step,
+    programId: programId,
   );
 }
 
-// ── 프로그램 상세 (온통청년 → 한걸음 '프로그램' 테이블 v2)
-// hangeoreum_data/programs_ontong_v2.json 의 programs[] 한 건과 같은 모양입니다. (README 의 'programs 필드' 표 참고)
+// ── 프로그램 상세 (온통청년 → 한걸음 '프로그램' 테이블 v3)
+// hangeoreum_data/programs_ontong_v3.json 의 programs[] 한 건과 같은 모양입니다. (hangeoreum_data/README.md '필드 사전' 참고)
 // 규칙: 값이 없으면 null, 날짜는 'YYYY-MM-DD', 자격 조건 배열이 [] 이면 '제한 없음'.
+// 앱 화면에 안 쓰는 v3 필드(orgCodes, basicPlan, categoriesRaw, subCategoriesRaw, ageLimitYnRaw)는 읽지 않습니다.
 
 /// 시도 코드 2자리 → 짧은 이름 (강원·전북은 특별자치도 전환 전후 코드 모두)
 const sidoNames = {
@@ -491,23 +513,38 @@ List<String> _strList(dynamic v) => v is List ? [for (final x in v) if (x != nul
 String? _nz(String? s) => (s == null || s.trim().isEmpty) ? null : s.trim();
 String _ymd(DateTime d) => '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
+/// 신청기간 한 구간 (v3 applyPeriods 의 원소)
+class ApplyPeriod {
+  final String start; // YYYY-MM-DD
+  final String end;
+  const ApplyPeriod(this.start, this.end);
+}
+
 class ProgramDetail {
-  /// 앱 안에서 쓰는 id (공고 id 또는 원본 정책번호)
+  /// 앱 안에서 쓰는 id. 온통청년 정책은 정책번호(originalId)와 같음
   final String id;
 
   // 식별
   final String source; // 'API' / 'MOCK' / '기관'
   final String sourceName; // '온통청년' 등 — 화면에 출처로 표시
   final String? originalId; // 정책번호
+  final String? firstRegistered; // 'YYYY-MM-DD HH:MM:SS'
   final String? lastModified;
 
-  // 기본
+  // 정책 내용
   final String name;
-  final String? organization; // 운영기관
-  final String? supervisingOrg; // 주관기관
+  final String? description; // 정책 설명
+  final String? benefit; // 지원 내용
   final String? providerGroup; // 중앙부처 / 지자체
   final String? provisionMethod; // 프로그램, 보조금, 바우처 …
-  final String? content; // 정책설명 + 지원내용
+
+  // 기관
+  final String? organization; // 화면 표시용 (운영기관, 없으면 주관기관)
+  final String? organizationRole; // 운영기관 / 주관기관
+  final String? operatingOrg;
+  final String? supervisingOrg;
+  final String? registeringOrg;
+  final String? regionTopOrg;
 
   // 분류
   final String? category;
@@ -518,7 +555,6 @@ class ProgramDetail {
 
   // 지역
   final bool isNationwide;
-  final String? regionTopOrg;
   final List<String> regionSidoCodes;
   final List<String> regionZipCodes;
 
@@ -531,15 +567,21 @@ class ProgramDetail {
   final List<String> specialConditions;
   final String? marriageCondition;
   final String? incomeConditionType; // 무관 / 연소득 / 기타
-  final int? incomeMin;
-  final int? incomeMax;
+  final int? incomeMin; // 만 원
+  final int? incomeMax; // 만 원
   final String? incomeConditionText;
   final String? extraEligibility;
   final String? excludedTargets;
 
+  // 모집 규모·인기도
+  final bool? isFirstComeFirstServed;
+  final int? supportCount;
+  final int? viewCount;
+
   // 기간
   final String? applyPeriodType; // 특정기간 / 상시 / 마감
-  final String? applyStart;
+  final List<ApplyPeriod> applyPeriods;
+  final String? applyStart; // 현재 또는 다음 신청기간
   final String? applyEnd;
   final String? bizPeriodType;
   final String? bizStart;
@@ -547,8 +589,8 @@ class ProgramDetail {
   final String? bizPeriodText;
 
   // 신청
-  final String? applyUrl;
-  final List<String> refUrls;
+  final String? applyUrl; // 바로 신청 링크 (있을 때만)
+  final List<String> refUrls; // 참고 링크 (최대 2개)
   final String? applyMethod;
   final String? screeningMethod;
   final String? documents;
@@ -559,7 +601,7 @@ class ProgramDetail {
   final String? difficulty;
   final int? durationMinutes;
   final double? aiConfidence; // 0~1
-  final String? reviewStatus; // 검수 대기 / 검수 완료 …
+  final String? reviewStatus; // 검수 대기 / 공개 / 반려
   final bool closed;
   final String? closedReason;
 
@@ -568,20 +610,25 @@ class ProgramDetail {
     this.source = 'API',
     this.sourceName = '온통청년',
     this.originalId,
+    this.firstRegistered,
     this.lastModified,
     required this.name,
-    this.organization,
-    this.supervisingOrg,
+    this.description,
+    this.benefit,
     this.providerGroup,
     this.provisionMethod,
-    this.content,
+    this.organization,
+    this.organizationRole,
+    this.operatingOrg,
+    this.supervisingOrg,
+    this.registeringOrg,
+    this.regionTopOrg,
     this.category,
     this.categories = const [],
     this.subCategory,
     this.subCategories = const [],
     this.keywords = const [],
     this.isNationwide = false,
-    this.regionTopOrg,
     this.regionSidoCodes = const [],
     this.regionZipCodes = const [],
     this.minAge,
@@ -597,7 +644,11 @@ class ProgramDetail {
     this.incomeConditionText,
     this.extraEligibility,
     this.excludedTargets,
+    this.isFirstComeFirstServed,
+    this.supportCount,
+    this.viewCount,
     this.applyPeriodType,
+    this.applyPeriods = const [],
     this.applyStart,
     this.applyEnd,
     this.bizPeriodType,
@@ -619,29 +670,35 @@ class ProgramDetail {
     this.closedReason,
   });
 
-  /// programs_ontong_v2.json 의 programs[] 한 건 → ProgramDetail
-  factory ProgramDetail.fromJson(Map<String, dynamic> j, {String? id}) {
+  /// programs_ontong_v3.json 의 programs[] 한 건 → ProgramDetail (서버 응답도 같은 모양이면 그대로 사용)
+  factory ProgramDetail.fromJson(Map<String, dynamic> j) {
     String? str(String k) => _nz(j[k]?.toString());
     int? integer(String k) => (j[k] as num?)?.toInt();
+    final periods = j['applyPeriods'];
     return ProgramDetail(
-      id: id ?? str('id') ?? str('originalId') ?? '',
+      id: str('id') ?? str('originalId') ?? '',
       source: str('source') ?? 'API',
       sourceName: str('sourceName') ?? '온통청년',
       originalId: str('originalId'),
+      firstRegistered: str('firstRegistered'),
       lastModified: str('lastModified'),
       name: str('name') ?? '(이름 없음)',
-      organization: str('organization'),
-      supervisingOrg: str('supervisingOrg'),
+      description: str('description'),
+      benefit: str('benefit'),
       providerGroup: str('providerGroup'),
       provisionMethod: str('provisionMethod'),
-      content: str('content'),
+      organization: str('organization'),
+      organizationRole: str('organizationRole'),
+      operatingOrg: str('operatingOrg'),
+      supervisingOrg: str('supervisingOrg'),
+      registeringOrg: str('registeringOrg'),
+      regionTopOrg: str('regionTopOrg'),
       category: str('category'),
       categories: _strList(j['categories']),
       subCategory: str('subCategory'),
       subCategories: _strList(j['subCategories']),
       keywords: _strList(j['keywords']),
       isNationwide: j['isNationwide'] == true,
-      regionTopOrg: str('regionTopOrg'),
       regionSidoCodes: _strList(j['regionSidoCodes']),
       regionZipCodes: _strList(j['regionZipCodes']),
       minAge: integer('minAge'),
@@ -657,7 +714,15 @@ class ProgramDetail {
       incomeConditionText: str('incomeConditionText'),
       extraEligibility: str('extraEligibility'),
       excludedTargets: str('excludedTargets'),
+      isFirstComeFirstServed: j['isFirstComeFirstServed'] as bool?,
+      supportCount: integer('supportCount'),
+      viewCount: integer('viewCount'),
       applyPeriodType: str('applyPeriodType'),
+      applyPeriods: [
+        if (periods is List)
+          for (final x in periods)
+            if (x is Map && x['start'] != null && x['end'] != null) ApplyPeriod('${x['start']}', '${x['end']}'),
+      ],
       applyStart: str('applyStart'),
       applyEnd: str('applyEnd'),
       bizPeriodType: str('bizPeriodType'),
@@ -704,7 +769,7 @@ class ProgramDetail {
   /// 기관이 등록한 프로그램 → 상세 (검수 전)
   factory ProgramDetail.fromRegistered(Program p) {
     final eligibility = [
-      if (_nz(p.target) case final t?) t,
+      ?_nz(p.target),
       if (_nz(p.capacity) case final c?) '모집 인원 $c',
     ].join('\n');
     final link = _nz(p.link);
@@ -715,7 +780,7 @@ class ProgramDetail {
       name: p.title,
       organization: _nz(p.org),
       category: kindLabel[p.kind],
-      content: _nz(p.desc),
+      description: _nz(p.desc),
       regionTopOrg: _nz(p.region),
       applyPeriodType: '특정기간',
       applyEnd: _nz(p.deadline),
@@ -724,16 +789,22 @@ class ProgramDetail {
       bizEnd: _nz(p.endDate),
       extraEligibility: _nz(eligibility),
       applyUrl: link,
-      refUrls: [if (link != null) link],
+      refUrls: [?link],
       step: p.step,
       reviewStatus: '검수 대기',
     );
   }
 
+  /// 설명과 지원 내용이 같은 정책이 많아서(원본 특성), 같으면 지원 내용은 숨김
+  bool get benefitDiffers => benefit != null && benefit != description;
+
+  /// 원문 링크 (신청 링크가 없으면 참고 링크)
+  String? get linkUrl => applyUrl ?? (refUrls.isEmpty ? null : refUrls.first);
+
   DateTime? get applyStartDate => applyStart == null ? null : DateTime.tryParse(applyStart!);
   DateTime? get applyEndDate => applyEnd == null ? null : DateTime.tryParse(applyEnd!);
 
-  /// 변환일 기준 closed + 오늘 기준으로 신청 마감일이 지났는지
+  /// 오늘 기준 마감 여부. 변환일 기준 closed 와, 그 뒤에 지난 신청 마감일을 함께 봄
   bool isClosedOn(DateTime today) {
     if (closed || applyPeriodType == '마감') return true;
     final end = applyEndDate;
@@ -751,7 +822,7 @@ class ProgramDetail {
 
   List<String> get regionNames => {
         for (final c in regionSidoCodes)
-          if (sidoNames[c] case final n?) n,
+          ?sidoNames[c],
       }.toList();
 
   String get regionLabel {
@@ -786,4 +857,3 @@ class ProgramDetail {
   /// 한걸음 분류 정보(STEP·난이도·소요시간·AI 확신도)가 있는지
   bool get hasServiceInfo => step != null || difficulty != null || durationMinutes != null || aiConfidence != null;
 }
-

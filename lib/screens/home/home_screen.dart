@@ -198,9 +198,8 @@ class _YouthHome extends StatelessWidget {
     }
 
     // STEP 3·4: 지원 여부가 기록된 공고.
-    // 스크랩만 한 항목은 포함하지 않습니다.
-    final appliedIds = state.scraps
-        .where((scrap) => scrap.applied)
+    // 스크랩만 한 항목은 포함하지 않습니다. 스크랩을 지웠어도 지원했으면 포함합니다.
+    final appliedIds = state.appliedScraps
         .map((scrap) => scrap.opportunityId)
         .toSet();
 

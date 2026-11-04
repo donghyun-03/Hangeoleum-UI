@@ -1,8 +1,11 @@
 // 알림 — 마감 임박 / 내게 맞는 새 소식
+// 누르면: 마감 임박 → 홈 / STEP 1 알림 → STEP 1 화면 / 나머지 → 프로그램 상세
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/models.dart';
+import '../../router/main_tabs.dart';
+import '../../router/routes.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
@@ -58,20 +61,36 @@ class NotificationScreen extends StatelessWidget {
   }
 }
 
+/// 알림을 읽음 처리하고 해당 화면으로 이동
+void _open(BuildContext context, Notice n) {
+  context.read<AppState>().markRead(n.id);
+
+  void goTab(MainTab tab, {int? step}) {
+    context.read<MainTabs>().go(tab, step: step);
+    Navigator.popUntil(context, (r) => r.isFirst);
+  }
+
+  if (n.group == 'deadline') {
+    goTab(MainTab.home);
+  } else if (n.step == 1) {
+    goTab(MainTab.step, step: 1);
+  } else if (n.programId case final id?) {
+    AppNav.toProgramDetail(context, id);
+  }
+}
+
 class _Group extends StatelessWidget {
   const _Group({required this.items});
   final List<Notice> items;
 
   @override
   Widget build(BuildContext context) {
-    final state = context.read<AppState>();
     return Column(
       children: [
         for (var i = 0; i < items.length; i++) ...[
           if (i > 0) const Divider(height: 1),
-          // TODO: 알림 눌렀을 때 해당 공고/정책 상세로 이동
           InkWell(
-            onTap: () => state.markRead(items[i].id),
+            onTap: () => _open(context, items[i]),
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 14),
               child: Row(

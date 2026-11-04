@@ -95,7 +95,11 @@ class _MissionEditCardState extends State<_MissionEditCard> {
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(m.title, style: AppText.bodyBold),
-                Text('${m.minutes}분 · ${m.category} · 마감 ${_fmt(m.due)}', style: AppText.caption),
+                Text([
+                  '${m.minutes}분',
+                  m.category,
+                  if (m.due != null) '마감 ${_fmt(m.due)}',
+                ].join(' · '), style: AppText.caption),
               ]),
             ),
             const TagBadge('진행 중'),

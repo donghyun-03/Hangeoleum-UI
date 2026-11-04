@@ -1,9 +1,9 @@
 // 프로그램 상세 — STEP 3·4 공고 카드, 스크랩 카드, 전체 탭 추천·검색, 기관 홈의 등록 프로그램을 누르면 진입
-// 데이터 모양: hangeoreum_data/programs_ontong_v2.json (온통청년 → 한걸음 '프로그램' 테이블 v2) = models.dart 의 ProgramDetail
+// 데이터 모양: hangeoreum_data/programs_ontong_v3.json (온통청년 → 한걸음 '프로그램' 테이블 v3) = models.dart 의 ProgramDetail
 //
 // 위:   요약 카드 (STEP·분류·모집 상태·이름·기관 + 한눈에 보기: 신청 기간 · 지역 · 나이 · 지원 방식)
 //       한걸음 분류 (STEP·난이도·소요 시간·AI 확신도 — LLM 분류 값이 있을 때만)
-// 가운데: 지원 내용 → 지원 대상(내 조건과 비교) → 신청 방법 → 기간 → 키워드 → 기타
+// 가운데: 정책 설명 · 지원 내용 → 지원 대상(내 조건과 비교) → 신청 방법 → 기간 → 키워드 → 기타
 // 아래:  출처·원문 링크 (온통청년 이용 조건: 출처와 원문 링크 표시) / 하단 고정: 신청하러 가기
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -18,7 +18,7 @@ import '../../widgets/common.dart';
 /// id(공고 id 또는 기관 등록 프로그램 id)로 상세를 찾습니다.
 /// TODO(API): 서버에서 프로그램 상세 조회로 교체 (응답 → ProgramDetail.fromJson)
 ProgramDetail? findProgramDetail(AppState state, String id) {
-  if (mockProgramDetails[id] case final p?) return p;
+  if (findOntongProgram(id) case final p?) return p;
   if (findOpportunity(id) case final o?) return ProgramDetail.fromOpportunity(o);
   for (final p in state.programs) {
     if (p.id == id) return ProgramDetail.fromRegistered(p);
@@ -67,16 +67,23 @@ class ProgramDetailScreen extends StatelessWidget {
       bottomNavigationBar: registered
           ? null
           : BottomBar(
+              // TODO(url_launcher): 링크 열기. 패키지 추가 전까지는 복사
               child: closed
                   ? const AppButton(label: '모집이 마감됐어요', onPressed: null)
-                  : p.applyUrl == null
-                      ? const AppButton(label: '아래 신청 방법을 확인해 주세요', onPressed: null)
-                      : AppButton(
+                  : p.applyUrl != null
+                      ? AppButton(
                           label: '신청하러 가기',
                           icon: Icons.open_in_new,
-                          // TODO(url_launcher): 링크 열기. 패키지 추가 전까지는 복사
                           onPressed: () => _copyLink(context, p.applyUrl!, '신청 링크를 복사했어요. 브라우저에 붙여 넣어 열어 주세요'),
-                        ),
+                        )
+                      : p.linkUrl != null
+                          ? AppButton(
+                              label: '공고 원문 보기',
+                              icon: Icons.open_in_new,
+                              variant: ButtonVariant.outline,
+                              onPressed: () => _copyLink(context, p.linkUrl!, '원문 링크를 복사했어요. 신청 방법은 원문에서 확인해 주세요'),
+                            )
+                          : const AppButton(label: '아래 신청 방법을 확인해 주세요', onPressed: null),
             ),
       body: ListView(
         padding: const EdgeInsets.all(20),
@@ -100,12 +107,20 @@ class ProgramDetailScreen extends StatelessWidget {
               ),
             ),
 
-          const SectionTitle('지원 내용'),
-          if (p.content != null)
-            _ExpandableText(p.content!)
-          else ...[
+          if (p.description == null && p.benefit == null) ...[
+            const SectionTitle('지원 내용'),
             Text('상세 내용이 아직 없어요.', style: AppText.small),
-            if (p.source == 'MOCK') const TodoBox('상세 데이터 연결 전 (STEP 3 은 온통청년, STEP 4 채용은 워크넷 API 예정)'),
+            if (p.source == 'MOCK') const TodoBox('상세 데이터 연결 전 (STEP 4 채용은 워크넷 API 예정)'),
+          ] else ...[
+            // 설명과 지원 내용이 같은 정책이 많아서 같으면 하나만 보여 줌
+            if (p.description != null) ...[
+              SectionTitle(p.benefitDiffers ? '정책 설명' : '지원 내용'),
+              _ExpandableText(p.description!),
+            ],
+            if (p.benefitDiffers || p.description == null) ...[
+              const SectionTitle('지원 내용'),
+              _ExpandableText(p.benefit!),
+            ],
           ],
 
           const SectionTitle('지원 대상'),
@@ -119,9 +134,11 @@ class ProgramDetailScreen extends StatelessWidget {
             if (p.documents != null) _TextBlock('제출 서류', p.documents!),
           ],
 
-          const SectionTitle('기간'),
+          const SectionTitle('기간 · 모집'),
           _InfoRow('신청 기간', _applyPeriodLabel(p)),
           _InfoRow('사업 기간', _bizPeriodLabel(p)),
+          if (p.supportCount != null) _InfoRow('모집 인원', '${_comma(p.supportCount!)}명'),
+          if (p.isFirstComeFirstServed == true) const _InfoRow('선정 방식', '선착순'),
 
           if (p.keywords.isNotEmpty || p.subCategories.isNotEmpty) ...[
             const SectionTitle('키워드'),
@@ -160,7 +177,7 @@ class _Summary extends StatelessWidget {
     ].join(' › ');
     final orgLine = [
       if (p.organization != null) p.organization!,
-      if (p.supervisingOrg != null && p.supervisingOrg != p.organization) '주관 ${p.supervisingOrg}',
+      if (p.organizationRole == '운영기관' && p.supervisingOrg != null && p.supervisingOrg != p.organization) '주관 ${p.supervisingOrg}',
     ].join(' · ');
     final tags = [
       if (p.providerGroup != null) p.providerGroup!,
@@ -420,6 +437,7 @@ class _SourceFooter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final modified = p.lastModified;
+    final links = {if (p.applyUrl != null) p.applyUrl!, ...p.refUrls};
     return Padding(
       padding: const EdgeInsets.only(top: 24),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -430,10 +448,11 @@ class _SourceFooter extends StatelessWidget {
             '출처 ${p.sourceName}',
             if (p.originalId != null) '정책번호 ${p.originalId}',
             if (modified != null) '최종 수정 ${modified.length >= 10 ? modified.substring(0, 10) : modified}',
+            if (p.viewCount != null) '조회 ${_comma(p.viewCount!)}',
           ].join(' · '),
           style: AppText.caption,
         ),
-        for (final url in p.refUrls)
+        for (final url in links)
           InkWell(
             onTap: () => _copyLink(context, url, '원문 링크를 복사했어요'),
             child: Padding(
@@ -489,6 +508,8 @@ String _applyShort(ProgramDetail p) => switch (p.applyPeriodType) {
 String _applyPeriodLabel(ProgramDetail p) => switch (p.applyPeriodType) {
       '상시' => '상시 모집',
       '마감' => '마감',
+      // 여러 번 모집하면 모두 표시
+      _ when p.applyPeriods.length > 1 => [for (final x in p.applyPeriods) '${_dot(x.start)} ~ ${_dot(x.end)}'].join('\n'),
       _ when p.applyStart != null || p.applyEnd != null => '${_dot(p.applyStart)} ~ ${_dot(p.applyEnd)}'.trim(),
       _ => '정보 없음',
     };
@@ -505,7 +526,7 @@ String? _incomeLabel(ProgramDetail p) {
   final type = p.incomeConditionType;
   if (type == null || type == '무관') return null;
   if (type != '연소득') return p.incomeConditionText ?? type;
-  // TODO(데이터): 온통청년 소득 금액 단위(만원) 확인
+  // 온통청년 소득 금액은 만 원 단위로 보임 (hangeoreum_data/README.md)
   final low = p.incomeMin, high = p.incomeMax;
   final range = [
     if (low != null) '${_comma(low)}만원 이상',
