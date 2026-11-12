@@ -11,6 +11,8 @@ dependencies:
     sdk: flutter
   # 전역 상태 (ChangeNotifier)
   provider: ^6.1.2
+  # STAR 정리 — BAZE(AI) 호출
+  http: ^1.2.2
   # 기록 작성 — 파일 첨부
   file_picker: ^13.1.0
   cupertino_icons: ^1.0.8

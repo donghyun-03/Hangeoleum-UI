@@ -7,9 +7,11 @@ import 'package:provider/provider.dart';
 
 import '../../models/models.dart';
 import '../../router/routes.dart';
+import '../../services/star_service.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
+import 'record_result_screen.dart';
 
 const _maxLength = 500;
 final _githubRe = RegExp(r'^https://github\.com/[\w.-]+(/[\w.-]+)?/?$');
@@ -35,6 +37,8 @@ class _RecordWriteScreenState extends State<RecordWriteScreen> {
   final _github = TextEditingController();
   late final List<Attachment> _attachments = [...?widget.editing?.attachments];
   String? _error;
+  bool _loading = false; // AI 가 정리하는 중
+  String? _question; // AI 가 "조금 더 알려 줘" 하고 물어본 질문
 
   @override
   void initState() {
@@ -89,7 +93,7 @@ class _RecordWriteScreenState extends State<RecordWriteScreen> {
     });
   }
 
-  void _summarize() {
+  Future<void> _summarize() async {
     final text = _text.text.trim();
     if (text.length < 5) {
       setState(() => _error = '오늘 한 일을 조금만 더 적어 주세요.');
@@ -106,30 +110,73 @@ class _RecordWriteScreenState extends State<RecordWriteScreen> {
     }
     final now = DateTime.now();
     final editing = widget.editing;
-    // TODO(AI): text 를 LLM 에 보내 STAR 로 정리받기. 지금은 원문을 그대로 넣은 임시 결과입니다.
+    // ① 메모를 AI 에 보내요
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    final StarResult result;
+    try {
+      result = await starService.makeStar(text);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = 'AI가 정리하지 못했어요. 잠시 뒤 다시 눌러 주세요. ($e)';
+      });
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _loading = false);
+    // ② 메모가 부족하면 질문을 보여 주고, 사용자가 더 적은 뒤 다시 누르게 해요
+    if (result.needMoreInfo || result.star == null) {
+      setState(() => _question = result.followUpQuestion ?? '무엇을 했는지 조금만 더 적어 주세요.');
+      return;
+    }
+    setState(() => _question = null);
+    // ③ 받은 STAR 로 초안을 만들어 결과 화면에서 확인·수정해요
     final draft = ActivityRecord(
       id: editing?.id ?? 'rec-${now.microsecondsSinceEpoch}',
       step: editing?.step ?? state.user.currentStep,
-      title: mission?.title ?? (text.split('\n').first.length > 24 ? text.split('\n').first.substring(0, 24) : text.split('\n').first),
+      // 미션 기록이면 미션 이름, 아니면 AI 가 지은 제목, 그것도 없으면 첫 줄
+      title: mission?.title ?? result.title ?? (text.split('\n').first.length > 24 ? text.split('\n').first.substring(0, 24) : text.split('\n').first),
       // YYYY-MM-DD (예: 2026-10-16)
       date: editing?.date ?? '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}',
       raw: text,
-      star: Star(s: '(AI 정리 예정) 상황', t: '(AI 정리 예정) 목표', a: text, r: '(AI 정리 예정) 결과'),
+      star: result.star!,
       attachments: List.of(_attachments),
     );
-    AppNav.toRecordResult(context, draft);
+    // 질문도 같이 넘기려고 이름 붙은 경로를 직접 열어요 (router 파일은 그대로)
+    Navigator.of(context).push(MaterialPageRoute(
+      settings: const RouteSettings(name: Routes.recordResult),
+      builder: (_) => RecordResultScreen(draft: draft, questions: result.improveQuestions),
+    ));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('활동 기록하기')),
-      bottomNavigationBar: BottomBar(child: AppButton(label: 'AI로 정리하기', onPressed: _summarize)),
+      bottomNavigationBar: BottomBar(
+        child: AppButton(label: _loading ? 'AI가 정리하는 중…' : 'AI로 정리하기', onPressed: _loading ? null : _summarize),
+      ),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
           Text('오늘 한 일을 편하게 적어 보세요', style: AppText.h2.copyWith(fontSize: 16)),
           const SizedBox(height: 10),
+          // AI 가 더 물어본 질문 (메모가 짧을 때)
+          if (_question != null)
+            AppCard(
+              color: AppColors.soft,
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('AI가 궁금해해요', style: AppText.bodyBold.copyWith(fontSize: 13)),
+                const SizedBox(height: 4),
+                Text(_question!, style: AppText.small.copyWith(fontSize: 13)),
+                const SizedBox(height: 4),
+                Text('아래 글에 이어서 적고 다시 눌러 주세요.', style: AppText.caption.copyWith(fontSize: 11)),
+              ]),
+            ),
           TextField(
             controller: _text,
             maxLines: 8,
@@ -207,6 +254,8 @@ class _RecordWriteScreenState extends State<RecordWriteScreen> {
               Text('+ AI가 이렇게 정리해 드려요', style: AppText.bodyBold.copyWith(fontSize: 12, color: AppColors.greenDark)),
               const SizedBox(height: 4),
               Text('S 상황 → T 목표 → A 행동 → R 결과', style: AppText.small.copyWith(fontSize: 11.5)),
+              if (!usingRealAi)
+                Text('지금은 AI 키 없이 실행 중이라 예시로만 채워져요.', style: AppText.caption.copyWith(fontSize: 11)),
             ]),
           ),
         ],
