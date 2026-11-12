@@ -208,7 +208,7 @@ void _registerStepTests() {
   });
 }
 
-// ── 경험 리포트: 폰 폭(390px)에서 자기소개서 초안 · 결과지형 리포트
+// ── 경험 리포트: 폰 폭(390px)에서 요약 · AI 자기소개서 입구 · 결과지형 리포트
 void _registerReportTests() {
   Future<void> pumpReport(WidgetTester tester, {AppState? state}) async {
     await tester.binding.setSurfaceSize(const Size(390, 3200));
@@ -222,61 +222,28 @@ void _registerReportTests() {
     await tester.pumpAndSettle();
   }
 
-  /// '482/500자' 에서 앞 숫자
-  int countOf(WidgetTester tester, int limit) {
-    final t = tester.widget<Text>(find.textContaining('/$limit자')).data!;
-    return int.parse(t.split('/').first);
-  }
-
-  /// 쓰기 버튼 누르고 '작성 중…' 이 끝날 때까지
-  Future<void> write(WidgetTester tester, String label) async {
-    await tester.tap(find.text(label));
-    await tester.pump();
-    expect(find.text('작성 중…'), findsOneWidget);
-    await tester.pump(const Duration(seconds: 1));
-    await tester.pumpAndSettle();
-  }
-
-  testWidgets('경험 리포트: 조건을 고르고 쓰기를 눌러야 한 번 써짐', (tester) async {
+  testWidgets('경험 리포트: 첫 화면은 요약 → AI 자기소개서 → 강점', (tester) async {
     await pumpReport(tester);
-    expect(find.text('자기소개서 초안'), findsOneWidget);
-    for (final q in ['직무 역량', '협업 경험', '문제 해결']) {
-      expect(find.text(q), findsWidgets); // '문제 해결' 은 역량 막대에도 있음
-    }
-    expect(find.text('포트폴리오로 내보내기 (준비 중)'), findsNothing);
+    // 요약 카드가 맨 위, 그 아래 AI 자기소개서 입구
+    final overviewTop = tester.getTopLeft(find.textContaining('님의 경험 리포트')).dy;
+    final essayTop = tester.getTopLeft(find.text('AI로 자기소개서 쓰기')).dy;
+    final strengthTop = tester.getTopLeft(find.textContaining('드러나요')).dy;
+    expect(overviewTop, lessThan(essayTop));
+    expect(essayTop, lessThan(strengthTop));
+    // 예전 더미 자소서·포트폴리오는 없음
+    expect(find.text('자기소개서 초안'), findsNothing);
+    expect(find.textContaining('AI 연결 전 더미'), findsNothing);
+    expect(find.text('포트폴리오 만들기'), findsNothing);
 
-    // 처음엔 안내만, 칩을 눌러도 글은 안 써짐
-    expect(find.text('문항과 글자 수를 고르고 쓰기를 눌러 주세요'), findsOneWidget);
-    await tester.tap(find.text('300자'));
+    await tester.tap(find.text('AI로 자기소개서 쓰기'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('['), findsNothing);
-
-    await write(tester, '자기소개서 쓰기');
-    final c300 = countOf(tester, 300);
-    expect(c300, lessThanOrEqualTo(300));
-    final title300 = tester.widget<Text>(find.textContaining('[')).data;
-    expect(find.text('다시 쓰기'), findsOneWidget);
-
-    // 칩을 바꾸면 글은 그대로, 버튼만 '이 조건으로 다시 쓰기'
-    await tester.tap(find.text('500자'));
-    await tester.tap(find.text('협업 경험'));
-    await tester.pumpAndSettle();
-    expect(countOf(tester, 300), c300);
-    expect(tester.widget<Text>(find.textContaining('[')).data, title300);
-    expect(find.text('이 조건으로 다시 쓰기'), findsOneWidget);
-
-    await write(tester, '이 조건으로 다시 쓰기');
-    final c500 = countOf(tester, 500);
-    expect(c500, lessThanOrEqualTo(500));
-    expect(c500, greaterThan(c300));
-    expect(tester.widget<Text>(find.textContaining('[')).data, isNot(title300));
-    expect(find.text('면접 예상 질문'), findsNothing);
+    expect(find.text('AI 자기소개서'), findsOneWidget);
+    expect(find.text('어디에 낼 자기소개서인가요?'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
   testWidgets('경험 리포트: 결과지형 — 강점 · 근거 기록 · 추천 직무 · 보완할 점', (tester) async {
     await pumpReport(tester);
-    expect(find.text('결과지형 리포트'), findsOneWidget);
     expect(find.textContaining('드러나요'), findsOneWidget);
     expect(find.text('역량별 근거'), findsNothing); // 역량 막대는 없앰
 
@@ -294,12 +261,6 @@ void _registerReportTests() {
     expect(find.text('데이터 분석 보조'), findsOneWidget);
     expect(find.text('보완할 점'), findsOneWidget);
 
-    await write(tester, '자기소개서 쓰기');
-    await tester.tap(find.text('전체 복사'));
-    await tester.pump();
-    expect(find.text('자기소개서 초안을 복사했어요'), findsOneWidget);
-    await tester.pump(const Duration(seconds: 3));
-    await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
   });
 

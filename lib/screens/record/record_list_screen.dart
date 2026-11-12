@@ -1,5 +1,5 @@
 // 활동 기록 목록 (STAR 로 정리된 카드)
-// 연필 → 기록 작성 / 카드의 수정 → 기록 수정(삭제는 그 안에서) / 경험 리포트·포트폴리오로 만들기
+// 연필 → 기록 작성 / 카드의 수정 → 기록 수정(삭제는 그 안에서) / 경험 리포트·자기소개서
 // 검색창: 제목 · 원문 · STAR 내용으로 찾기
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -61,7 +61,7 @@ class _RecordListScreenState extends State<RecordListScreen> {
                 child: ConstrainedBox(
                   constraints: BoxConstraints(minWidth: box.maxWidth),
                   child: AppButton(
-                    label: '경험 리포트·포트폴리오로 만들기',
+                    label: '경험 리포트·자기소개서',
                     expand: false,
                     onPressed: () => Navigator.push(
                       context,
