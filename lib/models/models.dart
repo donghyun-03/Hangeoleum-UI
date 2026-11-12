@@ -202,12 +202,12 @@ class ActivityRecord {
     this.attachments = const [],
   });
 
-  ActivityRecord copyWith({String? title, Star? star}) => ActivityRecord(
+  ActivityRecord copyWith({String? title, Star? star, String? raw}) => ActivityRecord(
     id: id,
     step: step,
     title: title ?? this.title,
     date: date,
-    raw: raw,
+    raw: raw ?? this.raw,
     star: star ?? this.star,
     attachments: attachments,
   );
