@@ -20,6 +20,13 @@ enum Education {
   final String label;
 }
 
+class LanguageScore {
+  final String exam;
+  final String score;
+  final int? year;
+  const LanguageScore({required this.exam, required this.score, this.year});
+}
+
 class AppUser {
   final String id;
   final UserRole role;
@@ -37,6 +44,9 @@ class AppUser {
   final bool diagnosed; // AI 진단 완료 여부
   final int currentStep; // 1~4
   final String intro;
+  final double? gpa;
+  final double gpaScale;
+  final List<LanguageScore> languages;
 
   const AppUser({
     required this.id,
@@ -55,6 +65,9 @@ class AppUser {
     required this.diagnosed,
     required this.currentStep,
     this.intro = '',
+    this.gpa,
+    this.gpaScale = 4.5,
+    this.languages = const [],
   });
 
   AppUser copyWith({
@@ -73,6 +86,9 @@ class AppUser {
     bool? diagnosed,
     int? currentStep,
     String? intro,
+    double? gpa,
+    double? gpaScale,
+    List<LanguageScore>? languages,
   }) {
     return AppUser(
       id: id,
@@ -91,6 +107,9 @@ class AppUser {
       diagnosed: diagnosed ?? this.diagnosed,
       currentStep: currentStep ?? this.currentStep,
       intro: intro ?? this.intro,
+      gpa: gpa ?? this.gpa,
+      gpaScale: gpaScale ?? this.gpaScale,
+      languages: languages ?? this.languages,
     );
   }
 }
@@ -202,15 +221,16 @@ class ActivityRecord {
     this.attachments = const [],
   });
 
-  ActivityRecord copyWith({String? title, Star? star, String? raw}) => ActivityRecord(
-    id: id,
-    step: step,
-    title: title ?? this.title,
-    date: date,
-    raw: raw ?? this.raw,
-    star: star ?? this.star,
-    attachments: attachments,
-  );
+  ActivityRecord copyWith({String? title, Star? star, String? raw}) =>
+      ActivityRecord(
+        id: id,
+        step: step,
+        title: title ?? this.title,
+        date: date,
+        raw: raw ?? this.raw,
+        star: star ?? this.star,
+        attachments: attachments,
+      );
 }
 
 // ── STEP 2 · 연결 (미니 프로젝트 팀)
@@ -501,17 +521,46 @@ class Notice {
 
 /// 시도 코드 2자리 → 짧은 이름 (강원·전북은 특별자치도 전환 전후 코드 모두)
 const sidoNames = {
-  '11': '서울', '26': '부산', '27': '대구', '28': '인천', '29': '광주', '30': '대전', '31': '울산', '36': '세종',
-  '41': '경기', '42': '강원', '43': '충북', '44': '충남', '45': '전북', '46': '전남', '47': '경북', '48': '경남',
-  '50': '제주', '51': '강원', '52': '전북',
+  '11': '서울',
+  '26': '부산',
+  '27': '대구',
+  '28': '인천',
+  '29': '광주',
+  '30': '대전',
+  '31': '울산',
+  '36': '세종',
+  '41': '경기',
+  '42': '강원',
+  '43': '충북',
+  '44': '충남',
+  '45': '전북',
+  '46': '전남',
+  '47': '경북',
+  '48': '경남',
+  '50': '제주',
+  '51': '강원',
+  '52': '전북',
 };
 
 /// 주소가 '경상북도 …' 처럼 긴 이름으로 시작하는 시도
-const _sidoLongNames = {'충북': '충청북도', '충남': '충청남도', '전북': '전라북도', '전남': '전라남도', '경북': '경상북도', '경남': '경상남도'};
+const _sidoLongNames = {
+  '충북': '충청북도',
+  '충남': '충청남도',
+  '전북': '전라북도',
+  '전남': '전라남도',
+  '경북': '경상북도',
+  '경남': '경상남도',
+};
 
-List<String> _strList(dynamic v) => v is List ? [for (final x in v) if (x != null) x.toString()] : const [];
+List<String> _strList(dynamic v) => v is List
+    ? [
+        for (final x in v)
+          if (x != null) x.toString(),
+      ]
+    : const [];
 String? _nz(String? s) => (s == null || s.trim().isEmpty) ? null : s.trim();
-String _ymd(DateTime d) => '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+String _ymd(DateTime d) =>
+    '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
 /// 신청기간 한 구간 (v3 applyPeriods 의 원소)
 class ApplyPeriod {
@@ -721,7 +770,8 @@ class ProgramDetail {
       applyPeriods: [
         if (periods is List)
           for (final x in periods)
-            if (x is Map && x['start'] != null && x['end'] != null) ApplyPeriod('${x['start']}', '${x['end']}'),
+            if (x is Map && x['start'] != null && x['end'] != null)
+              ApplyPeriod('${x['start']}', '${x['end']}'),
       ],
       applyStart: str('applyStart'),
       applyEnd: str('applyEnd'),
@@ -801,8 +851,10 @@ class ProgramDetail {
   /// 원문 링크 (신청 링크가 없으면 참고 링크)
   String? get linkUrl => applyUrl ?? (refUrls.isEmpty ? null : refUrls.first);
 
-  DateTime? get applyStartDate => applyStart == null ? null : DateTime.tryParse(applyStart!);
-  DateTime? get applyEndDate => applyEnd == null ? null : DateTime.tryParse(applyEnd!);
+  DateTime? get applyStartDate =>
+      applyStart == null ? null : DateTime.tryParse(applyStart!);
+  DateTime? get applyEndDate =>
+      applyEnd == null ? null : DateTime.tryParse(applyEnd!);
 
   /// 오늘 기준 마감 여부. 변환일 기준 closed 와, 그 뒤에 지난 신청 마감일을 함께 봄
   bool isClosedOn(DateTime today) {
@@ -820,10 +872,8 @@ class ProgramDetail {
   /// 신청 마감까지 남은 날 (마감일 없으면 null)
   int? ddayOn(DateTime today) => applyEndDate?.difference(today).inDays;
 
-  List<String> get regionNames => {
-        for (final c in regionSidoCodes)
-          ?sidoNames[c],
-      }.toList();
+  List<String> get regionNames =>
+      {for (final c in regionSidoCodes) ?sidoNames[c]}.toList();
 
   String get regionLabel {
     if (isNationwide) return '전국';
@@ -851,9 +901,16 @@ class ProgramDetail {
     if (isNationwide) return true;
     final names = regionNames;
     if (names.isEmpty) return null;
-    return names.any((n) => address.startsWith(n) || address.startsWith(_sidoLongNames[n] ?? n));
+    return names.any(
+      (n) =>
+          address.startsWith(n) || address.startsWith(_sidoLongNames[n] ?? n),
+    );
   }
 
   /// 한걸음 분류 정보(STEP·난이도·소요시간·AI 확신도)가 있는지
-  bool get hasServiceInfo => step != null || difficulty != null || durationMinutes != null || aiConfidence != null;
+  bool get hasServiceInfo =>
+      step != null ||
+      difficulty != null ||
+      durationMinutes != null ||
+      aiConfidence != null;
 }
