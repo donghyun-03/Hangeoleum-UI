@@ -10,6 +10,7 @@ import 'package:flutter/foundation.dart';
 
 import '../data/mock_data.dart';
 import '../models/models.dart';
+import '../models/diagnosis_profile.dart';
 
 class AppState extends ChangeNotifier {
   // ───────────────────────── 사용자 / 인증
@@ -61,9 +62,9 @@ class AppState extends ChangeNotifier {
 
   void logout() {
     _user = mockUser;
+    _diagnosis = DiagnosisProfile.empty;   // ← 추가
     notifyListeners();
   }
-
   // ───────────────────────── 미션 (STEP 1, 미션 수정)
   final List<Mission> _missions = [...mockMissions];
   List<Mission> get missions => List.unmodifiable(_missions);
@@ -382,6 +383,14 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ───────────────────────── 니즈 진단 결과
+  DiagnosisProfile _diagnosis = DiagnosisProfile.empty;
+  DiagnosisProfile get diagnosis => _diagnosis;
+
+  void saveDiagnosis(DiagnosisProfile p) {
+    _diagnosis = p;
+    notifyListeners();
+  }
 }
 
 

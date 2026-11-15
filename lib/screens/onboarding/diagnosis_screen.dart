@@ -1,23 +1,13 @@
-// AI 대화 (Q1~Q4) — 청년 진단. 끝나면 추천 STEP 을 정하고 메인으로 이동
-// 지금은 고정 질문/선택지입니다. LLM 연결 시 _answer() 에서 API 를 호출하도록 바꾸세요.
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../data/diagnosis_data.dart';
+import '../../models/diagnosis_profile.dart';
 import '../../router/main_tabs.dart';
 import '../../router/routes.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
-
-const _questions = [
-  (q: '요즘은 어떻게 지내고 계세요?', options: ['집에 있는 시간이 많아요', '취업 준비 중이에요', '알바 잠깐 하고 있어요', '그냥 그래요']),
-  (
-    q: '이야기해 줘서 고마워요. 천천히 해도 괜찮아요.\n혹시 조금이라도 관심 가는 분야가 있나요?',
-    options: ['IT·데이터', '디자인·영상', '사무·행정', '아직 잘 모르겠어요'],
-  ),
-  (q: '하루에 얼마나 시간을 낼 수 있을까요?', options: ['10분 정도', '30분 정도', '1시간 이상']),
-  (q: '지금 가장 해보고 싶은 건 뭐예요?', options: ['생활 리듬 되찾기', '사람 만나기', '경험 쌓기', '바로 취업 준비']),
-];
 
 class DiagnosisScreen extends StatefulWidget {
   const DiagnosisScreen({super.key});
@@ -27,51 +17,159 @@ class DiagnosisScreen extends StatefulWidget {
 }
 
 class _DiagnosisScreenState extends State<DiagnosisScreen> {
-  int _idx = 0;
-  final List<String> _answers = [];
-  final List<(bool fromMe, String text)> _msgs = [
-    (false, '안녕하세요! 저는 한걸음 도우미예요.\n정답은 없으니, 편하게 이야기해 주세요.'),
-    (false, _questions[0].q),
-  ];
-  final _input = TextEditingController();
-  final _scroll = ScrollController();
+  final Map<String, String> _answers = {};
+  final List<(bool fromMe, String text)> _msgs = [];
+  final ScrollController _scroll = ScrollController();
 
-  bool get _done => _idx >= _questions.length;
+  double _topFadeStrength = 0.0;
+  bool _isTyping = true;
+
+  List<SlotQuestion> get _visible => visibleQuestions(_answers);
+  int get _idx => _answers.length;
+  int get _total => _visible.length;
+  bool get _done => _idx >= _total;
+
+  SlotQuestion? get _current {
+    final questions = _visible;
+    if (_idx >= questions.length) return null;
+    return questions[_idx];
+  }
+
+  double get _progressRatio {
+    if (_total == 0) return 0.0;
+    if (_done) return 1.0;
+    return (_idx / _total).clamp(0.0, 1.0);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(_onScroll);
+    _playInitialMessages();
+  }
+
+  Future<void> _playInitialMessages() async {
+    final first = kDiagnosisQuestions.first;
+    await _enqueueAiMessages([
+      '안녕하세요! 저는 한걸음 도우미예요.\n정답은 없으니 편하게 이야기해 주세요.',
+      if (first.introText != null) first.introText!,
+      first.questionText,
+    ]);
+  }
+
+  Future<void> _enqueueAiMessages(List<String> messages) async {
+    if (!mounted) return;
+    setState(() => _isTyping = true);
+
+    for (int i = 0; i < messages.length; i++) {
+      final msg = messages[i];
+      final prevLen = i == 0 ? 10 : messages[i - 1].length;
+      final delayMs = i == 0 ? 550 : (750 + prevLen * 16).clamp(800, 1250);
+
+      await Future.delayed(Duration(milliseconds: delayMs));
+      if (!mounted) return;
+
+      setState(() {
+        _msgs.add((false, msg));
+      });
+      _scrollToBottom();
+    }
+
+    await Future.delayed(const Duration(milliseconds: 350));
+    if (!mounted) return;
+    setState(() => _isTyping = false);
+    _scrollToBottom();
+  }
+
+  void _onScroll() {
+    if (!_scroll.hasClients) return;
+    final nextStrength = (_scroll.offset / 32.0).clamp(0.0, 1.0);
+    if ((nextStrength - _topFadeStrength).abs() > 0.02) {
+      setState(() {
+        _topFadeStrength = nextStrength;
+      });
+    }
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scroll.hasClients && _scroll.position.maxScrollExtent > 0) {
+        _scroll.animateTo(
+          _scroll.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 320),
+          curve: Curves.easeOutCubic,
+        );
+      }
+    });
+  }
 
   @override
   void dispose() {
-    _input.dispose();
+    _scroll.removeListener(_onScroll);
     _scroll.dispose();
     super.dispose();
   }
 
-  void _answer(String text) {
-    if (text.trim().isEmpty || _done) return;
+  Future<void> _answer(String option) async {
+    if (_done || _isTyping) return;
+
+    final question = _current;
+    if (question == null) return;
+
     setState(() {
-      _answers.add(text.trim());
-      _msgs.add((true, text.trim()));
-      _idx++;
-      _msgs.add((false, _done ? '고마워요! 지금 나에게 맞는 첫 걸음을 준비했어요.' : _questions[_idx].q));
-      _input.clear();
+      _answers[question.slotKey] = option;
+      _msgs.add((true, option));
+      _isTyping = true;
     });
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scroll.hasClients) _scroll.jumpTo(_scroll.position.maxScrollExtent);
-    });
+    _scrollToBottom();
+
+    final nextAiMsgs = <String>[];
+    final response = question.getResponseMessage(option);
+    if (response != null) {
+      nextAiMsgs.add(response);
+    }
+
+    if (_done) {
+      nextAiMsgs.add('이야기 나눠줘서 고마워요! 나에게 맞는 첫 걸음을 준비했어요. 🌱');
+    } else {
+      final nextQuestion = _current;
+
+      if (nextQuestion != null) {
+        if (nextQuestion.introText != null) {
+          nextAiMsgs.add(nextQuestion.introText!);
+        }
+        nextAiMsgs.add(nextQuestion.questionText);
+      }
+    }
+
+    await _enqueueAiMessages(nextAiMsgs);
   }
 
   void _finish() {
-    // TODO(AI): _answers 를 서버로 보내 추천 STEP·관심 분야 받기
-    context.read<AppState>().updateUser((u) => u.copyWith(
+    final profile = DiagnosisProfile(
+      Map.of(_answers),
+      completedAt: DateTime.now(),
+    );
+
+    final state = context.read<AppState>();
+    state.saveDiagnosis(profile);
+    state.updateUser((u) => u.copyWith(
           diagnosed: true,
           currentStep: 1,
-          interests: _answers.length > 1 ? [_answers[1]] : u.interests,
+          interests: profile.interests.isEmpty
+              ? u.interests
+              : profile.interests,
         ));
+
     context.read<MainTabs>().go(MainTab.home);
     AppNav.resetTo(context, Routes.main);
   }
 
   @override
   Widget build(BuildContext context) {
+    final percent = (_progressRatio * 100).round();
+    final showBottomCta = _done && !_isTyping;
+
     return Scaffold(
       backgroundColor: AppColors.paper,
       appBar: AppBar(
@@ -79,91 +177,179 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 16),
-            child: Center(child: Text('${_idx.clamp(0, _questions.length)}/${_questions.length}', style: AppText.caption)),
+            child: Center(
+              child: Text(
+                _done ? '완료' : '$percent%',
+                style: AppText.caption.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
           ),
         ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(6),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
-            child: ProgressLine(value: _idx, total: _questions.length),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: TweenAnimationBuilder<double>(
+              duration: const Duration(milliseconds: 350),
+              curve: Curves.easeOutCubic,
+              tween: Tween<double>(end: _progressRatio),
+              builder: (context, animatedValue, _) {
+                return ProgressLine(
+                  value: (animatedValue * 100).round(),
+                  total: 100,
+                );
+              },
+            ),
           ),
         ),
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: ListView(
-              controller: _scroll,
-              padding: const EdgeInsets.all(20),
-              children: [
-                Text('한걸음', style: AppText.caption),
-                const SizedBox(height: 6),
-                for (final (fromMe, text) in _msgs) _Bubble(text: text, fromMe: fromMe),
-                const SizedBox(height: 6),
-                if (!_done)
-                  ChipWrap(children: [
-                    for (final o in _questions[_idx].options)
-                      SelectChip(label: o, selected: false, dark: true, onTap: () => _answer(o)),
-                  ])
-                else
-                  AppButton(label: '진단 완료 · 시작하기', onPressed: _finish),
-              ],
-            ),
-          ),
-          Container(
-            decoration: const BoxDecoration(border: Border(top: BorderSide(color: AppColors.line))),
-            padding: const EdgeInsets.all(12),
-            child: SafeArea(
-              top: false,
-              child: Row(children: [
-                Expanded(
-                  child: TextField(
-                    controller: _input,
-                    enabled: !_done,
-                    onSubmitted: _answer,
-                    decoration: const InputDecoration(hintText: '직접 입력하기'),
-                  ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: ShaderMask(
+                shaderCallback: (Rect bounds) {
+                  return LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      AppColors.paper.withValues(alpha: 1.0 - _topFadeStrength),
+                      AppColors.paper,
+                      AppColors.paper,
+                    ],
+                    // 상단 페이드 영역을 얇게(8%) 줄여 자연스럽게 처리
+                    stops: const [0.0, 0.08, 1.0],
+                  ).createShader(bounds);
+                },
+                blendMode: BlendMode.dstIn,
+                child: ListView(
+                  controller: _scroll,
+                  // 억지 하단 여백 제거 → 말풍선이 쌓이는 만큼만 자연스럽게 스크롤
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 36),
+                  children: [
+                    Text('한걸음', style: AppText.caption),
+                    const SizedBox(height: 12),
+
+                    for (int i = 0; i < _msgs.length; i++)
+                      _AnimatedBubble(
+                        key: ValueKey('msg_$i'),
+                        text: _msgs[i].$2,
+                        fromMe: _msgs[i].$1,
+                      ),
+
+                    const SizedBox(height: 14),
+
+                    if (!_done && !_isTyping && _current != null)
+                      TweenAnimationBuilder<double>(
+                        duration: const Duration(milliseconds: 260),
+                        curve: Curves.easeOut,
+                        tween: Tween<double>(begin: 0.0, end: 1.0),
+                        builder: (context, value, child) {
+                          return Opacity(
+                            opacity: value,
+                            child: Transform.translate(
+                              offset: Offset(0, (1 - value) * 6),
+                              child: child,
+                            ),
+                          );
+                        },
+                        child: ChipWrap(
+                          children: [
+                            for (final option in _current!.options)
+                              SelectChip(
+                                label: option,
+                                selected: false,
+                                dark: true,
+                                onTap: () => _answer(option),
+                              ),
+                          ],
+                        ),
+                      ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                IconButton.filled(
-                  tooltip: '보내기',
-                  style: IconButton.styleFrom(backgroundColor: AppColors.green),
-                  onPressed: _done ? null : () => _answer(_input.text),
-                  icon: const Icon(Icons.arrow_forward, color: AppColors.paper),
-                ),
-              ]),
+              ),
             ),
-          ),
-        ],
+
+            AnimatedSize(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOutCubic,
+              child: showBottomCta
+                  ? Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                      decoration: BoxDecoration(
+                        color: AppColors.paper,
+                        border: Border(
+                          top: BorderSide(color: AppColors.soft, width: 1),
+                        ),
+                      ),
+                      child: AppButton(
+                        label: '진단 완료 · 시작하기',
+                        onPressed: _finish,
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _Bubble extends StatelessWidget {
-  const _Bubble({required this.text, required this.fromMe});
+class _AnimatedBubble extends StatelessWidget {
+  const _AnimatedBubble({
+    super.key,
+    required this.text,
+    required this.fromMe,
+  });
+
   final String text;
   final bool fromMe;
 
   @override
   Widget build(BuildContext context) {
-    return Align(
-      alignment: fromMe ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        constraints: const BoxConstraints(maxWidth: 300),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: fromMe ? AppColors.black : AppColors.soft,
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(fromMe ? 14 : 4),
-            topRight: Radius.circular(fromMe ? 4 : 14),
-            bottomLeft: const Radius.circular(14),
-            bottomRight: const Radius.circular(14),
+    return TweenAnimationBuilder<double>(
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOutCubic,
+      tween: Tween<double>(begin: 0.0, end: 1.0),
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(0, (1 - value) * 8),
+            child: child,
+          ),
+        );
+      },
+      child: Align(
+        alignment: fromMe ? Alignment.centerRight : Alignment.centerLeft,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          constraints: const BoxConstraints(maxWidth: 300),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 14,
+            vertical: 10,
+          ),
+          decoration: BoxDecoration(
+            color: fromMe ? AppColors.black : AppColors.soft,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(fromMe ? 14 : 4),
+              topRight: Radius.circular(fromMe ? 4 : 14),
+              bottomLeft: const Radius.circular(14),
+              bottomRight: const Radius.circular(14),
+            ),
+          ),
+          child: Text(
+            text,
+            style: AppText.body.copyWith(
+              fontSize: 13.5,
+              color: fromMe ? AppColors.paper : AppColors.ink,
+            ),
           ),
         ),
-        child: Text(text, style: AppText.body.copyWith(fontSize: 13.5, color: fromMe ? AppColors.paper : AppColors.ink)),
       ),
     );
   }
