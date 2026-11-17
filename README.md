@@ -114,6 +114,29 @@ cd ../Hangeoleum-UI
 python tool/ontong_to_dart.py ../hangeoreum_data/programs_ontong_v3.json   # → lib/data/ontong_programs.dart
 ```
 
+## 관심기업 · 지원 기준 (3안, 러프 기준)
+
+레벨·STEP 대신 **관심기업 기준치**와 내 스펙을 비교해 5개 영역의 충족 여부를 계산합니다. 홈 화면은 아직 그대로이고, 계산 결과만 `AppState.readiness` 로 준비해 두었어요.
+
+| 영역 | 기준치 (예: 대기업 · 개발) | 내 값을 어디서 보나 |
+| --- | --- | --- |
+| 포트폴리오 | 결과물 2개 | 첨부(파일·깃허브)가 있는 활동 기록 수 |
+| 성적·학력 | 4년제 대졸 · 학점 3.5/4.5 | 내 정보의 학력 · 학점 (4.5 환산) |
+| 직무연관성 | 직무 관련 경험 2개 | 직무 키워드가 들어간 기록 수 + 전공이 맞으면 1 |
+| 어학 | TOEIC 700 (환산) | 내 정보의 어학 (TOEIC Speaking·OPIc·TOEFL 은 대략 환산) |
+| 협업경험 | 팀 활동 2회 | 앱 안 팀 프로젝트 + 팀·동아리·협업 내용이 들어간 기록 |
+
+- 결과: `충족` · `조금 부족` · `부족` · `필수 아님` · `입력 필요` (`AreaStatus`). 같은 기록이면 항상 같은 결과가 나와요(AI 판단 X).
+- 기준치는 **실제 공고가 아니라 팀이 정한 대략적인 값**이에요 → `lib/data/criteria_data.dart` 표(기업 유형별 기본값 + 직무별 보정)에서 숫자만 고치면 돼요.
+- 파일: `models/criteria.dart`(모델) · `data/criteria_data.dart`(러프 기준표) · `services/criteria_service.dart`(계산) · `screens/target/target_setup_screen.dart`(관심기업 설정) · `test/criteria_test.dart`
+- 관심기업 설정 화면: 전체 탭 → **관심기업 설정** (튜토리얼 미션 '관심기업, 직무 입력하기'가 이 화면을 열면 돼요. '성적, 어학 입력하기'는 기존 내 정보 화면)
+
+```dart
+final r = context.watch<AppState>().readiness;          // 관심기업이 없으면 null
+r?.of(CriteriaArea.language).status;                    // AreaStatus.partial …
+r?.gaps;                                                 // 부족한 영역 → '지금 하면 좋은 활동' 추천 근거 (hint)
+```
+
 ## 알림 이동
 
 | 알림 | 누르면 |

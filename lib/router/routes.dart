@@ -22,6 +22,7 @@ import '../screens/record/record_list_screen.dart';
 import '../screens/record/record_result_screen.dart';
 import '../screens/record/record_write_screen.dart';
 import '../screens/shell/main_shell.dart';
+import '../screens/target/target_setup_screen.dart';
 import '../screens/team/member_activity_screen.dart';
 import '../screens/team/member_profile_screen.dart';
 import '../screens/team/team_apply_screen.dart';
@@ -53,6 +54,9 @@ class Routes {
   // 취업 (STEP 4)
   static const applicationStatus = '/applications'; // 취업 지원현황
 
+  // 관심기업 · 지원 기준 (3안)
+  static const targetSetup = '/target'; // 관심기업·직무 설정. 저장하면 true 를 돌려줌
+
   // 프로그램 (STEP 3·4 공고 상세 · 기관 등록)
   static const programDetail = '/program/detail'; // 인자: String programId (공고 id 또는 등록 프로그램 id)
   static const programRegister = '/program/register';
@@ -82,6 +86,7 @@ Route<dynamic> onGenerateRoute(RouteSettings settings) {
     Routes.teamApply => TeamApplyScreen(postId: args as String),
     Routes.teamPostWrite => const TeamPostWriteScreen(),
     Routes.applicationStatus => const ApplicationStatusScreen(),
+    Routes.targetSetup => const TargetSetupScreen(),
     Routes.programDetail => ProgramDetailScreen(programId: args as String),
     Routes.programRegister => const ProgramRegisterScreen(),
     Routes.notifications => const NotificationScreen(),

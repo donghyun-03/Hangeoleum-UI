@@ -57,6 +57,12 @@ class _AllScreenState extends State<AllScreen> {
         () => _goTab(MainTab.step, step: 3),
       ),
       (
+        Icons.flag_outlined,
+        '관심기업 설정',
+        '가고 싶은 기업·직무와 지원 기준치',
+        () => Navigator.pushNamed(context, Routes.targetSetup),
+      ),
+      (
         Icons.work_outline,
         '채용',
         '나에게 맞는 채용 공고 찾아보기',

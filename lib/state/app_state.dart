@@ -11,6 +11,9 @@ import 'package:flutter/foundation.dart';
 import '../data/mock_data.dart';
 import '../models/models.dart';
 import '../models/diagnosis_profile.dart';
+import '../models/criteria.dart';
+import '../data/criteria_data.dart';
+import '../services/criteria_service.dart';
 
 class AppState extends ChangeNotifier {
   // ───────────────────────── 사용자 / 인증
@@ -63,6 +66,7 @@ class AppState extends ChangeNotifier {
   void logout() {
     _user = mockUser;
     _diagnosis = DiagnosisProfile.empty;   // ← 추가
+    _target = null;
     notifyListeners();
   }
   // ───────────────────────── 미션 (STEP 1, 미션 수정)
@@ -391,6 +395,43 @@ class AppState extends ChangeNotifier {
     _diagnosis = p;
     notifyListeners();
   }
+
+  // ───────────────────────── 관심기업 · 지원 기준 (3안)
+  // 관심기업을 정하면 기업 유형 × 직무로 기준치를 잡고(data/criteria_data.dart),
+  // 내 정보·활동 기록과 비교해 5개 영역(포트폴리오 · 성적/학력 · 직무연관성 · 어학 · 협업경험) 충족 여부를 계산합니다.
+  // 홈 화면은 readiness 만 읽어서 그리면 됩니다.
+  TargetCompany? _target;
+  TargetCompany? get target => _target;
+
+  /// TODO(API): 관심기업 저장
+  void setTarget(TargetCompany? t) {
+    _target = t;
+    notifyListeners();
+  }
+
+  /// 관심기업을 정하기 전, 진단 답변·관심 분야로 채워 둘 기본값
+  TargetCompany get suggestedTarget =>
+      _target ??
+      TargetCompany(
+        name: '',
+        tier: CompanyTier.fromLabel(_diagnosis.companyPreference) ?? CompanyTier.mid,
+        jobGroup: JobGroup.fromInterest(_diagnosis.interests.firstOrNull) ??
+            JobGroup.fromInterest(_user.interests.firstOrNull) ??
+            JobGroup.office,
+      );
+
+  /// 관심기업의 기준치 (관심기업이 없으면 null)
+  CompanyCriteria? get criteria => _target == null ? null : roughCriteriaFor(_target!);
+
+  /// 앱 안에서 참여한 팀 프로젝트 수 (내가 만든 모집 글 + 참여 확정된 신청)
+  int get teamProjectCount =>
+      _teamPosts.where((p) => p.leaderId == _user.id || p.memberIds.contains(_user.id)).length +
+      _applications.where((a) => a.status == ApplicationStatus.accepted).length;
+
+  /// 관심기업 기준 대비 5개 영역 결과 (관심기업이 없으면 null)
+  ReadinessReport? get readiness {
+    final c = criteria;
+    if (c == null) return null;
+    return evaluateReadiness(c, SpecSnapshot.from(_user, _records, teamProjects: teamProjectCount));
+  }
 }
-
-
