@@ -284,6 +284,31 @@ class TeamPost {
   bool get isFull => current >= max;
 }
 
+
+/// 홈의 추천 활동 카드에 표시할 데이터입니다.
+/// 실제 추천 결과가 연결되면 이 모델을 그대로 사용하고 데이터 공급부만 교체합니다.
+enum HomeRecommendationType { mission, team, opportunity }
+
+class HomeRecommendation {
+  final String id;
+  final String targetId;
+  final int step;
+  final String title;
+  final String detail;
+  final String reason;
+  final HomeRecommendationType type;
+
+  const HomeRecommendation({
+    required this.id,
+    required this.targetId,
+    required this.step,
+    required this.title,
+    required this.detail,
+    required this.reason,
+    required this.type,
+  });
+}
+
 class TeamMember {
   final String id;
   final String name;

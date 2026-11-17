@@ -1,17 +1,18 @@
 // 메인(홈)
-// STEP 1 미션, STEP 2 승인된 팀 활동,
-// STEP 3·4 지원한 공고를 홈에서 모아 표시합니다.
+// 나의 역량(접이식) / 나의 활동(STEP 낮은 순) / AI 추천 활동 순서로 표시합니다.
+// 활동: STEP 1 미션, STEP 2 승인된 팀 활동, STEP 3·4 지원한 공고를 모아 보여줍니다.
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../data/mock_data.dart';
+import '../../data/home_mock_data.dart';
 import '../../models/models.dart';
-import '../../router/main_tabs.dart';
 import '../../router/routes.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
+import '../../widgets/home/recommended_section.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -232,17 +233,17 @@ class _YouthHome extends StatelessWidget {
     }
 
     // STEP 3·4 홈 추가 조건:
-    // 지금은 기존의 "지원한 공고" 표시 방식을 유지합니다.
+    // 지원한 공고(appliedScraps) 또는 홈 추천에서 "활동에 추가"한 공고를 표시합니다.
     // 지원한 공고는 스크랩을 지웠어도 지원현황에 남으므로 appliedScraps 로 읽습니다.
-    // TODO: 상세 화면의 + 버튼 구현 시, 이 필터만
-    // "홈에 추가한 프로그램 ID 목록"을 읽도록 변경합니다.
-    // 아래의 완료 상태 조회/토글 로직은 그대로 사용할 수 있습니다.
     final appliedIds = state.appliedScraps
         .map((scrap) => scrap.opportunityId)
         .toSet();
 
     for (final opportunity in mockOpportunities) {
-      if (!appliedIds.contains(opportunity.id)) continue;
+      final isApplied = appliedIds.contains(opportunity.id);
+      final isAdded = state.isHomeOpportunityAdded(opportunity.id);
+
+      if (!isApplied && !isAdded) continue;
 
       if (opportunity.step != 3 && opportunity.step != 4) {
         continue;
@@ -289,297 +290,49 @@ class _YouthHome extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
-    final currentStep = state.user.currentStep;
-    final info = stepInfo[currentStep];
-
     final activities = _collectActivities(state);
 
-    // 현재 STEP: 진행 중 활동을 먼저, 완료 활동을 나중에 표시합니다.
-    final currentActivities = [
-      ...activities.where(
-        (activity) => activity.step == currentStep && !activity.done,
-      ),
-      ...activities.where(
-        (activity) => activity.step == currentStep && activity.done,
-      ),
-    ];
-
-    // 현재 STEP이 아닌 활동 중 미완료 활동만 표시합니다.
-    // STEP이 바뀌면 이전 단계의 미완료 활동이 여기에 포함됩니다.
-    final otherActivities = activities
-        .where(
-          (activity) => activity.step != currentStep && !activity.done,
-        )
-        .toList()
-      ..sort((a, b) {
-        final stepOrder = a.step.compareTo(b.step);
-
-        return stepOrder != 0
-            ? stepOrder
-            : a.title.compareTo(b.title);
-      });
-
-    final doneCount = currentActivities
-        .where((activity) => activity.done)
-        .length;
-
-    // 기존 AppState.advanceHomeStep()과 동일한 최소 완료 기준입니다.
-    final requiredCount = currentStep == 1 ? 3 : 1;
-
-    // 최소 완료 개수를 충족하고 다음 STEP이 있을 때만 활성화합니다.
-    final canGoNext = currentStep >= 1 &&
-        currentStep < 4 &&
-        doneCount >= requiredCount;
-
-    final otherCount = otherActivities.length;
-
-    final nextStepTooltip = currentStep >= 4
-        ? '마지막 단계입니다'
-        : canGoNext
-            ? 'STEP ${currentStep + 1}로 이동'
-            : '활동을 $requiredCount개 완료하면 이동할 수 있어요';
+    // 완료된 활동은 홈 목록에서 숨기고, 진행 중인 활동만 STEP 순으로 표시합니다.
+    final ongoing = activities.where((activity) => !activity.done).toList()
+      ..sort(_compareByStep);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // 요약과 현재 활동을 하나의 카드에 표시합니다.
-        AppCard(
-          padding: EdgeInsets.zero,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // 상단: 지금 나의 단계와 완료 현황.
-              Material(
-                color: AppColors.soft,
-                borderRadius: BorderRadius.vertical(
-                  top: Radius.circular(AppRadius.md),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: InkWell(
-                  onTap: () {
-                    context.read<MainTabs>().go(
-                          MainTab.step,
-                          step: currentStep,
-                        );
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '지금 나의 단계',
-                          style: AppText.caption,
-                        ),
-                        Text(
-                          'STEP $currentStep · ${info?.title ?? ''}',
-                          style: AppText.h2.copyWith(fontSize: 17),
-                        ),
-                        if (info != null)
-                          Text(
-                            info.desc,
-                            style: AppText.small.copyWith(fontSize: 12),
-                          ),
-                        const SizedBox(height: 10),
-                        // 완료 문구와 선은 왼쪽에,
-                        // 다음 버튼은 오른쪽에서 선의 중앙에 맞춰 표시합니다.
-                        Stack(
-                          children: [
-                            Padding(
-                              // 버튼 아래쪽이 영역 밖으로 벗어나지 않도록 공간을 확보합니다.
-                              // 버튼 40 / 2 - 진행률 선 6 / 2 = 17
-                              padding: const EdgeInsets.only(
-                                right: 52, // 버튼 40 + 선과 버튼 사이 간격 12
-                                bottom: 17,
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    '활동 $doneCount/$requiredCount 완료',
-                                    style: AppText.bodyBold.copyWith(
-                                      fontSize: 13,
-                                      color: AppColors.ink,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  SizedBox(
-                                    height: 6,
-                                    child: ProgressLine(
-                                      value: doneCount > requiredCount
-                                          ? requiredCount
-                                          : doneCount,
-                                      total: requiredCount,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Positioned(
-                              right: 0,
-                              bottom: 0,
-                              child: _NextStepButton(
-                                isActive: canGoNext,
-                                size: 40,
-                                tooltip: nextStepTooltip,
-                                onTap: () {
-                                  final advanced = context
-                                      .read<AppState>()
-                                      .advanceHomeStep(
-                                        expectedStep: currentStep,
-                                        completedCount: doneCount,
-                                      );
-
-                                  if (!advanced) return;
-
-                                  context.read<MainTabs>().selectStep(
-                                        currentStep + 1,
-                                      );
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const Divider(
-                height: 1,
-                thickness: 1,
-                color: AppColors.line,
-              ),
-
-              // 하단: 현재 활동 또는 활동 없음 안내.
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 4,
-                ),
-                child: currentActivities.isEmpty
-                    ? Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        child: Text(
-                          '현재 STEP에 표시할 활동이 없어요.',
-                          style: AppText.small,
-                        ),
-                      )
-                    : Column(
-                        children: [
-                          for (
-                            var index = 0;
-                            index < currentActivities.length;
-                            index++
-                          ) ...[
-                            if (index > 0) const Divider(),
-                            _ActivityRow(
-                              activity: currentActivities[index],
-                              showStep: false,
-                            ),
-                          ],
-                        ],
-                      ),
-              ),
-            ],
-          ),
+        // 나의 역량: 처음엔 준비도만 보이고, 눌러야 네 가지 역량이 펼쳐집니다.
+        // TODO: 목표 기업 기준(목표 점수)은 니즈 진단 결과에서 읽도록 교체합니다.
+        _SectionHeader(
+          title: '나의 역량',
+          trailing: TagBadge(homeTargetCompanyLabel, tone: BadgeTone.gray),
         ),
+        const SizedBox(height: 10),
+        _AbilityCard(data: _buildAbilityData(state)),
 
+        // 나의 활동: 기존 활동 행(설명 · STEP 칩 · 상태)을 그대로 사용합니다.
         const SizedBox(height: 24),
-        Row(
-          children: [
-            Text(
-              '그 외 진행 중 $otherCount',
-              style: AppText.bodyBold,
-            ),
-            const SizedBox(width: 12),
-            const Expanded(
-              child: Divider(color: AppColors.line),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
+        _SectionHeader(title: '나의 활동', count: ongoing.length),
+        const SizedBox(height: 10),
         _ActivityList(
-          activities: otherActivities,
+          activities: ongoing,
           showStep: true,
-          emptyMessage: '다른 STEP에 표시할 활동이 없어요.',
+          emptyMessage: '아직 시작한 활동이 없어요. 아래 추천 활동을 추가해 보세요.',
         ),
+
+        // AI 추천 활동: 옆으로 밀어 보고, 버튼으로 활동에 추가합니다.
+        const SizedBox(height: 24),
+        const _SectionHeader(title: 'AI 추천 활동'),
+        const SizedBox(height: 10),
+        const RecommendedSection(),
       ],
     );
   }
 }
 
-/// 홈 전용 다음 STEP 버튼.
-/// 비활성 상태에서도 터치 효과는 표시하지만 단계 이동은 막습니다.
-class _NextStepButton extends StatelessWidget {
-  const _NextStepButton({
-    required this.isActive,
-    required this.onTap,
-    required this.tooltip,
-    this.size = 40,
-  });
-
-  final bool isActive;
-  final VoidCallback onTap;
-  final String tooltip;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    final circleColor = isActive
-        ? AppColors.green
-        : AppColors.line;
-
-    final arrowColor = isActive
-        ? AppColors.paper
-        : AppColors.subtle;
-
-    final effectColor = isActive
-        ? AppColors.paper
-        : AppColors.subtle;
-
-    return Tooltip(
-      message: tooltip,
-      child: Semantics(
-        button: true,
-        enabled: isActive,
-        label: tooltip,
-        onTap: isActive ? onTap : null,
-        child: ExcludeSemantics(
-          child: SizedBox(
-            width: size,
-            height: size,
-            child: Material(
-              color: circleColor,
-              shape: const CircleBorder(),
-              clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                customBorder: const CircleBorder(),
-                splashColor: effectColor.withValues(alpha: 0.24),
-                highlightColor: effectColor.withValues(alpha: 0.12),
-
-                // null로 설정하지 않아 비활성 상태에도
-                // 터치 효과를 보여주고 상위 카드의 탭을 막습니다.
-                onTap: () {
-                  if (!isActive) return;
-                  onTap();
-                },
-                child: Center(
-                  child: Icon(
-                    Icons.keyboard_double_arrow_right,
-                    color: arrowColor,
-                    size: size * 0.55,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+/// STEP이 낮은 순, 같은 STEP이면 제목순으로 정렬합니다.
+int _compareByStep(_HomeActivity a, _HomeActivity b) {
+  final stepOrder = a.step.compareTo(b.step);
+  return stepOrder != 0 ? stepOrder : a.title.compareTo(b.title);
 }
-
 
 class _ActivityList extends StatelessWidget {
   const _ActivityList({
@@ -740,6 +493,448 @@ class _ActivityRow extends StatelessWidget {
 }
 
 
+
+/// 섹션 제목 줄: 제목 + (진행 중 개수) + 오른쪽 위젯.
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({
+    required this.title,
+    this.count,
+    this.trailing,
+  });
+
+  final String title;
+  final int? count;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Text(title, style: AppText.bodyBold),
+        if (count != null) ...[
+          const SizedBox(width: 6),
+          Text(
+            '$count',
+            style: AppText.bodyBold.copyWith(color: AppColors.greenDark),
+          ),
+        ],
+        const Spacer(),
+        ?trailing,
+      ],
+    );
+  }
+}
+
+// ───────────────────────── 나의 역량 ─────────────────────────
+
+/// 역량 하나. value 가 null 이면 아직 입력하지 않은 값입니다.
+/// target 이 있으면 목표 점수를 함께 표시합니다.
+class _Ability {
+  const _Ability({
+    required this.label,
+    required this.value,
+    required this.max,
+    this.target,
+  });
+
+  final String label;
+  final double? value;
+  final double max;
+  final double? target;
+
+  bool get hasTarget => target != null;
+  bool get achieved =>
+      value != null && target != null && value! >= target!;
+
+  double get progress =>
+      value == null ? 0.0 : (value! / max).clamp(0.0, 1.0).toDouble();
+
+  double? get targetProgress =>
+      target == null ? null : (target! / max).clamp(0.0, 1.0).toDouble();
+
+  /// 준비도 계산용 비율. 목표가 있으면 목표 대비, 없으면 만점 대비입니다.
+  double get ratio {
+    final v = value;
+    if (v == null) return 0.0;
+    return (v / (target ?? max)).clamp(0.0, 1.0).toDouble();
+  }
+}
+
+class _AbilityData {
+  const _AbilityData({required this.readiness, required this.abilities});
+
+  /// 종합 취업 준비도(0~100).
+  final int readiness;
+  final List<_Ability> abilities;
+}
+
+/// 사용자 정보(학점·어학)와 임시 AI 점수로 역량 데이터를 만듭니다.
+_AbilityData _buildAbilityData(AppState state) {
+  final user = state.user;
+
+  // 어학: 등록한 어학 점수 중 TOEIC 점수를 사용합니다.
+  double? toeic;
+  for (final language in user.languages) {
+    final exam = language.exam.toUpperCase();
+    if (exam.contains('TOEIC') || language.exam.contains('토익')) {
+      toeic = double.tryParse(language.score);
+      if (toeic != null) break;
+    }
+  }
+
+  final abilities = <_Ability>[
+    const _Ability(label: '포트폴리오', value: homeMockPortfolioScore, max: 100),
+    _Ability(
+      label: '성적',
+      value: user.gpa,
+      max: user.gpaScale,
+      target: homeTargetGpa * user.gpaScale / 4.5,
+    ),
+    _Ability(
+      label: '어학',
+      value: toeic,
+      max: homeToeicMax,
+      target: homeTargetToeic,
+    ),
+    const _Ability(label: '직무 연관성', value: homeMockJobFitScore, max: 100),
+  ];
+
+  // 임시 계산식: 각 역량 달성 비율의 평균입니다. AI 종합 평가가 생기면 교체합니다.
+  final average = abilities.fold<double>(0, (sum, a) => sum + a.ratio) /
+      abilities.length;
+
+  return _AbilityData(
+    readiness: (average * 100).round(),
+    abilities: abilities,
+  );
+}
+
+String _fmt(double n) =>
+    n == n.roundToDouble() ? n.toInt().toString() : n.toStringAsFixed(1);
+
+/// 접힌 상태의 한 줄 요약. 예: "어학 40점 · 성적 0.4점 남음"
+String _remainingSummary(List<_Ability> abilities) {
+  final gaps = <String>[];
+  final missing = <String>[];
+
+  for (final ability in abilities) {
+    if (!ability.hasTarget || ability.achieved) continue;
+
+    final value = ability.value;
+    if (value == null) {
+      missing.add(ability.label);
+    } else {
+      gaps.add('${ability.label} ${_fmt(ability.target! - value)}점');
+    }
+  }
+
+  return [
+    if (gaps.isNotEmpty) '${gaps.join(' · ')} 남음',
+    if (missing.isNotEmpty) '${missing.join(', ')} 미입력',
+  ].join(' · ');
+}
+
+/// 준비도 한 줄 + 눌러서 펼치는 2x2 세부 역량.
+class _AbilityCard extends StatefulWidget {
+  const _AbilityCard({required this.data});
+
+  final _AbilityData data;
+
+  @override
+  State<_AbilityCard> createState() => _AbilityCardState();
+}
+
+class _AbilityCardState extends State<_AbilityCard> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final data = widget.data;
+    final targeted =
+        data.abilities.where((ability) => ability.hasTarget).toList();
+    final allAchieved =
+        targeted.isNotEmpty && targeted.every((ability) => ability.achieved);
+    final summary = allAchieved
+        ? '모든 목표를 달성했어요'
+        : _remainingSummary(data.abilities);
+
+    return Semantics(
+      button: true,
+      label: _expanded ? '세부 역량 접기' : '세부 역량 펼치기',
+      child: AppCard(
+        // AppCard 기본 아래 여백(10)을 없애고, 간격은 SizedBox로 맞춥니다.
+        margin: EdgeInsets.zero,
+        onTap: () => setState(() => _expanded = !_expanded),
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(
+                  '준비도',
+                  style: AppText.bodyBold.copyWith(fontSize: 14),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _GaugeBar(
+                    progress:
+                        (data.readiness / 100).clamp(0.0, 1.0).toDouble(),
+                    height: 12,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: '${data.readiness}',
+                        style: AppText.h2.copyWith(
+                          fontSize: 27,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.greenDark,
+                          height: 1.1,
+                        ),
+                      ),
+                      TextSpan(
+                        text: '점',
+                        style: AppText.bodyBold.copyWith(
+                          fontSize: 12,
+                          color: AppColors.greenDark,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 4),
+                AnimatedRotation(
+                  turns: _expanded ? 0.5 : 0,
+                  duration: const Duration(milliseconds: 200),
+                  child: const Icon(
+                    Icons.keyboard_arrow_down,
+                    size: 20,
+                    color: AppColors.subtle,
+                  ),
+                ),
+              ],
+            ),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOut,
+              alignment: Alignment.topCenter,
+              child: _expanded
+                  ? _buildDetail(data)
+                  : (summary.isEmpty
+                      ? const SizedBox(width: double.infinity)
+                      : Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(summary, style: AppText.caption),
+                        )),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetail(_AbilityData data) {
+    final items = data.abilities;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Divider(height: 1, thickness: 1, color: AppColors.line),
+          const SizedBox(height: 14),
+          for (var i = 0; i < items.length; i += 2) ...[
+            if (i > 0) const SizedBox(height: 14),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: _AbilityCell(ability: items[i])),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: i + 1 < items.length
+                      ? _AbilityCell(ability: items[i + 1])
+                      : const SizedBox.shrink(),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// 2x2 칸 하나: 이름, 현재 / 만점, 게이지, 목표 문구.
+class _AbilityCell extends StatelessWidget {
+  const _AbilityCell({required this.ability});
+
+  final _Ability ability;
+
+  @override
+  Widget build(BuildContext context) {
+    final value = ability.value;
+    final hint = !ability.hasTarget
+        ? null
+        : ability.achieved
+            ? '목표 달성'
+            : '목표 ${_fmt(ability.target!)}';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          ability.label,
+          style: AppText.bodyBold.copyWith(fontSize: 12),
+        ),
+        const SizedBox(height: 4),
+        Text.rich(
+          TextSpan(
+            children: [
+              TextSpan(
+                text: value == null ? '-' : _fmt(value),
+                style: AppText.h2.copyWith(fontSize: 20),
+              ),
+              TextSpan(
+                text: ' / ${_fmt(ability.max)}',
+                style: AppText.caption,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 6),
+        _GaugeBar(
+          progress: ability.progress,
+          targetProgress: ability.targetProgress,
+          achieved: ability.achieved,
+          keepEndSpace: true,
+        ),
+        const SizedBox(height: 5),
+        // 목표가 없는 역량도 줄 높이를 맞추기 위해 같은 높이를 비워 둡니다.
+        SizedBox(
+          height: 16,
+          child: hint == null
+              ? null
+              : Text(
+                  hint,
+                  style: AppText.caption.copyWith(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.greenDark,
+                  ),
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+/// 게이지: 현재 값(진한 초록) → 목표까지 남은 구간(연한 초록) → 만점(회색).
+/// 목표 위치에는 동그란 마커를 표시하고, 달성하면 체크가 들어갑니다.
+class _GaugeBar extends StatelessWidget {
+  const _GaugeBar({
+    required this.progress,
+    this.targetProgress,
+    this.achieved = false,
+    this.height = 8,
+    this.keepEndSpace = false,
+  });
+
+  final double progress;
+  final double? targetProgress;
+  final bool achieved;
+  final double height;
+  final bool keepEndSpace;
+
+  static const double _markerSize = 18;
+
+  @override
+  Widget build(BuildContext context) {
+    final target = targetProgress;
+    final boxHeight = target == null ? height : _markerSize;
+    final barTop = (boxHeight - height) / 2;
+    final radius = BorderRadius.circular(height / 2);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        // 목표 마커가 오른쪽 끝에 붙지 않도록 목표형 게이지는 10% 여백을 둡니다.
+        final usableWidth = width * (keepEndSpace ? 0.90 : 1.0);
+        final fillWidth = usableWidth * progress;
+        final gapWidth = target == null
+            ? 0.0
+            : (usableWidth * (target - progress)).clamp(0.0, usableWidth).toDouble();
+
+        return SizedBox(
+          height: boxHeight,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned(
+                left: 0,
+                right: 0,
+                top: barTop,
+                height: height,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: AppColors.line,
+                    borderRadius: radius,
+                  ),
+                ),
+              ),
+              if (gapWidth > 0)
+                Positioned(
+                  left: fillWidth,
+                  top: barTop,
+                  width: gapWidth,
+                  height: height,
+                  child: const DecoratedBox(
+                    decoration: BoxDecoration(color: AppColors.greenLine),
+                  ),
+                ),
+              Positioned(
+                left: 0,
+                top: barTop,
+                width: fillWidth,
+                height: height,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: AppColors.green,
+                    borderRadius: radius,
+                  ),
+                ),
+              ),
+              if (target != null)
+                Positioned(
+                  left: (usableWidth * target - _markerSize / 2).clamp(0.0, width - _markerSize).toDouble(),
+                  top: 0,
+                  width: _markerSize,
+                  height: _markerSize,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: achieved ? AppColors.green : AppColors.paper,
+                      border: Border.all(color: AppColors.greenDark, width: 2.5),
+                    ),
+                    child: achieved
+                        ? const Icon(
+                            Icons.check,
+                            size: 9,
+                            color: AppColors.paper,
+                          )
+                        : null,
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
 
 class _InstitutionHome extends StatelessWidget {
   const _InstitutionHome();

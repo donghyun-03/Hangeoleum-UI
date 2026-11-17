@@ -383,6 +383,32 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ───────────────────────── 홈에 추가한 공고 (STEP 3·4)
+
+  // 홈의 AI 추천에서 "활동에 추가"한 공고 ID입니다.
+  // 지원한 공고(appliedScraps)와 별개로 홈 활동에 표시됩니다.
+  final Set<String> _homeAddedOpportunityIds = <String>{};
+
+  bool isHomeOpportunityAdded(String opportunityId) =>
+      _homeAddedOpportunityIds.contains(opportunityId);
+
+  /// 공고를 홈 활동에 추가합니다. 그만둔 공고였다면 그만둠 상태도 해제합니다.
+  void addHomeOpportunity({required String id, required int step}) {
+    final added = _homeAddedOpportunityIds.add(id);
+    final cleared = _stoppedActivityIds[step]?.remove(id) ?? false;
+
+    if (added || cleared) {
+      notifyListeners();
+    }
+  }
+
+  /// 추가를 취소합니다. (추천 카드의 "실행 취소"용)
+  void removeHomeOpportunity({required String id, required int step}) {
+    if (_homeAddedOpportunityIds.remove(id)) {
+      notifyListeners();
+    }
+  }
+
   // ───────────────────────── 니즈 진단 결과
   DiagnosisProfile _diagnosis = DiagnosisProfile.empty;
   DiagnosisProfile get diagnosis => _diagnosis;
@@ -392,5 +418,3 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 }
-
-
