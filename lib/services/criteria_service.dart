@@ -5,6 +5,8 @@
 //
 // 같은 입력이면 항상 같은 결과가 나오는 계산식입니다 (AI 판단 X).
 // Flutter 를 import 하지 않는 순수 Dart 파일입니다.
+import '../data/criteria_data.dart';
+import '../data/posting_criteria_data.dart';
 import '../models/criteria.dart';
 import '../models/models.dart';
 
@@ -102,10 +104,12 @@ const _teamWords = ['팀', '협업', '동아리', '조별', '공동', '함께', 
 int countPortfolio(SpecSnapshot s) => s.records.where((r) => r.attachments.isNotEmpty).length;
 
 /// 직무 관련 활동 기록 수 (+ 전공이 맞으면 1)
-int countJobFit(SpecSnapshot s, TargetCompany t) {
+/// [extra]: 공고에 자주 나온 기술·자격증 (크롤링 버전)
+int countJobFit(SpecSnapshot s, TargetCompany t, {List<String> extra = const []}) {
   final words = {
     ...t.jobGroup.keywords,
     ...t.jobTitle.toLowerCase().split(RegExp(r'\s+')).where((w) => w.length >= 2),
+    ...extra.map((w) => w.toLowerCase()).where((w) => w.length >= 2),
   };
   final records = s.records.where((r) {
     final text = _contentOf(r);
@@ -251,7 +255,7 @@ ReadinessReport evaluateReadiness(CompanyCriteria c, SpecSnapshot s) {
     _academic(c, s),
     _count(
       CriteriaArea.jobFit,
-      countJobFit(s, t),
+      countJobFit(s, t, extra: c.extraKeywords),
       c.minJobFit,
       '개',
       '${t.jobLabel} 관련 교육·공모전·프로젝트를 하나 해 봐요.',
@@ -267,4 +271,69 @@ ReadinessReport evaluateReadiness(CompanyCriteria c, SpecSnapshot s) {
       c.sourceOf(CriteriaArea.teamwork),
     ),
   ]);
+}
+
+// ───────────────────────── 공고 기준 합치기 (크롤링 버전)
+
+/// 관심기업에 맞는 공고 기준 찾기. 기업 이름이 같고 직무 묶음이 같은 것 중
+/// 직무 이름까지 겹치는 것을 먼저 고릅니다. 없으면 null (→ 러프 기준만 사용)
+PostingCriteria? findPostingCriteria(TargetCompany t, List<PostingCriteria> list) {
+  if (t.name.trim().isEmpty) return null;
+  final same = list.where((p) => p.matchesCompany(t.name) && p.jobGroup == t.jobGroup).toList();
+  if (same.isEmpty) return null;
+  final title = t.jobTitle.replaceAll(' ', '');
+  for (final p in same) {
+    final job = p.job.replaceAll(' ', '');
+    if (title.isNotEmpty && job.isNotEmpty && (title.contains(job) || job.contains(title))) return p;
+  }
+  return same.first;
+}
+
+/// 관심기업 기준치 = 러프 기준 + (있으면) 채용 공고 기준
+///
+/// - 성적·학력: 공고의 학력. 본문을 읽은 공고가 있으면 학점도 공고 값 (적힌 게 없으면 학점 안 봄)
+/// - 어학: 본문을 읽은 공고가 있으면 공고 값 (적힌 게 없거나 우대뿐이면 필수 아님)
+/// - 포트폴리오·협업: 공고 절반 이상이 언급하면 2개, 20% 이상이면 1개 이상으로 올림 (내리지는 않음)
+/// - 직무연관성: 개수는 러프 기준 그대로, 공고에 자주 나온 기술·자격증을 판단 단어에 더함
+CompanyCriteria resolveCriteria(TargetCompany t, {List<PostingCriteria> postings = kPostingCriteria}) {
+  final rough = roughCriteriaFor(t);
+  final p = findPostingCriteria(t, postings);
+  if (p == null) return rough;
+
+  final src = <CriteriaArea, CriteriaSource>{};
+  var c = rough;
+
+  if (p.education != null) {
+    c = c.copyWith(minEducation: p.education);
+    src[CriteriaArea.academic] = CriteriaSource.posting;
+  }
+  if (p.hasDetail) {
+    c = p.minGpa == null ? c.copyWith(clearGpa: true) : c.copyWith(minGpa: p.minGpa);
+    c = p.minEnglish == null ? c.copyWith(clearEnglish: true) : c.copyWith(minEnglish: p.minEnglish);
+    src[CriteriaArea.academic] = CriteriaSource.posting;
+    src[CriteriaArea.language] = CriteriaSource.posting;
+
+    int raise(int base, double rate) => rate >= 0.5
+        ? (base < 2 ? 2 : base)
+        : rate >= 0.2
+            ? (base < 1 ? 1 : base)
+            : base;
+    final portfolio = raise(c.minPortfolio, p.portfolioRate);
+    final teamwork = raise(c.minTeamwork, p.teamworkRate);
+    if (p.portfolioRate >= 0.2) src[CriteriaArea.portfolio] = CriteriaSource.posting;
+    if (p.teamworkRate >= 0.2) src[CriteriaArea.teamwork] = CriteriaSource.posting;
+    c = c.copyWith(minPortfolio: portfolio, minTeamwork: teamwork);
+  }
+
+  final extra = [...p.skills, ...p.certificates];
+  if (extra.isNotEmpty) src[CriteriaArea.jobFit] = CriteriaSource.posting;
+
+  final english = p.hasDetail && p.minEnglish == null && p.englishPreferred ? ' 어학은 필수는 아니고 우대로 적혀 있어요.' : '';
+  final detail = p.hasDetail ? '' : ' 공고 본문이 이미지라 학력만 공고에서 가져왔어요.';
+  return c.copyWith(
+    sources: src,
+    extraKeywords: extra,
+    posting: p,
+    note: '${p.label} 기준이에요.$detail$english 표시가 없는 영역은 기본 기준이에요.',
+  );
 }

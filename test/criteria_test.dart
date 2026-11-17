@@ -162,4 +162,76 @@ void main() {
       expect(r.of(CriteriaArea.portfolio).status, AreaStatus.unmet); // 디자인은 포트폴리오가 핵심
     });
   });
+
+  group('채용 공고 기준 합치기 (크롤링 버전)', () {
+    const naverPosting = PostingCriteria(
+      company: '네이버',
+      job: '백엔드',
+      jobGroup: JobGroup.dev,
+      source: '사람인',
+      fetchedAt: '2026-11-17',
+      postingCount: 6,
+      detailCount: 4,
+      education: EduLevel.univ,
+      minGpa: 3.0,
+      portfolioRate: 0.5,
+      teamworkRate: 0.1,
+      skills: ['Spring', 'Kotlin'],
+      certificates: ['정보처리기사'],
+    );
+
+    test('공고 기준이 없으면 러프 기준 그대로', () {
+      final c = resolveCriteria(_naverDev, postings: const []);
+      expect(c.posting, isNull);
+      expect(c.minGpa, 3.5);
+      expect(c.sourceOf(CriteriaArea.academic), CriteriaSource.rough);
+    });
+
+    test('이름은 괄호·띄어쓰기를 무시하고 맞춤', () {
+      expect(naverPosting.matchesCompany('네이버(주)'), isTrue);
+      expect(naverPosting.matchesCompany('카카오'), false);
+    });
+
+    test('공고 값으로 학점·어학·포트폴리오를 바꿈', () {
+      final c = resolveCriteria(_naverDev, postings: const [naverPosting]);
+      expect(c.posting?.company, '네이버');
+      expect(c.minGpa, 3.0); // 공고 값
+      expect(c.minEnglish, isNull); // 본문을 읽은 공고에 어학이 없음 → 필수 아님
+      expect(c.minPortfolio, 2); // 절반이 포트폴리오 언급 → 2 (러프 2 유지)
+      expect(c.minTeamwork, 2); // 언급 적음 → 러프 그대로
+      expect(c.sourceOf(CriteriaArea.academic), CriteriaSource.posting);
+      expect(c.sourceOf(CriteriaArea.language), CriteriaSource.posting);
+      expect(c.sourceOf(CriteriaArea.teamwork), CriteriaSource.rough);
+      expect(c.sourceOf(CriteriaArea.jobFit), CriteriaSource.posting);
+    });
+
+    test('본문이 이미지뿐이면 학력만 공고에서 가져옴', () {
+      const imageOnly = PostingCriteria(
+        company: '네이버',
+        job: '',
+        jobGroup: JobGroup.dev,
+        source: '사람인',
+        fetchedAt: '2026-11-17',
+        postingCount: 3,
+        education: EduLevel.high,
+      );
+      final c = resolveCriteria(_naverDev, postings: const [imageOnly]);
+      expect(c.minEducation, EduLevel.high);
+      expect(c.minGpa, 3.5); // 러프 그대로
+      expect(c.minEnglish, 700);
+      expect(c.sourceOf(CriteriaArea.language), CriteriaSource.rough);
+    });
+
+    test('다른 직무 묶음 공고는 쓰지 않음', () {
+      const design = TargetCompany(name: '네이버', tier: CompanyTier.large, jobGroup: JobGroup.design);
+      expect(resolveCriteria(design, postings: const [naverPosting]).posting, isNull);
+    });
+
+    test('공고 기술 키워드로 직무연관성을 판단', () {
+      final c = resolveCriteria(_naverDev, postings: const [naverPosting]);
+      final s = _spec(major: '경영학부', records: [_rec('1', 'Kotlin 공부 기록')]);
+      expect(countJobFit(s, c.target, extra: c.extraKeywords), 1);
+      expect(countJobFit(s, c.target), 0);
+    });
+  });
 }

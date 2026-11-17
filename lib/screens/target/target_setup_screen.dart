@@ -1,11 +1,13 @@
 // 관심기업 · 직무 설정 — 튜토리얼 미션 '관심기업, 직무 입력하기'에서 진입 (전체 탭에서도 열 수 있음)
 // 기업 이름 · 기업 유형 · 직무를 정하면 아래에 이 기업의 기준치(5개 영역)를 바로 보여 줍니다.
+// 크롤링 버전: 그 기업 공고 기준이 있으면 '공고' 표시와 함께 공고 값을 보여 줍니다.
 // 저장하면 true 를 돌려줍니다.
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../data/criteria_data.dart';
 import '../../models/criteria.dart';
+import '../../services/criteria_service.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
@@ -49,7 +51,9 @@ class _TargetSetupScreenState extends State<TargetSetupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final criteria = roughCriteriaFor(_t.copyWith(name: _name.text.trim(), jobTitle: _job.text.trim()));
+    // 크롤링한 공고 기준이 있으면 합쳐진 기준, 없으면 러프 기준
+    final criteria = resolveCriteria(_t.copyWith(name: _name.text.trim(), jobTitle: _job.text.trim()));
+    final posting = criteria.posting;
 
     return Scaffold(
       appBar: AppBar(title: const Text('관심기업 설정')),
@@ -99,10 +103,22 @@ class _TargetSetupScreenState extends State<TargetSetupScreen> {
             onChanged: (v) => setState(() => _t = _t.copyWith(jobTitle: v.trim())),
           ),
 
-          SectionTitle('${criteria.target.label} 기준치'),
+          SectionTitle('${criteria.target.label} 기준치', aside: posting == null ? null : '채용 공고 반영'),
           AppCard(
-            child: Column(children: [
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               for (final area in CriteriaArea.values) _CriteriaRow(area: area, criteria: criteria),
+              if (posting != null && posting.skills.isNotEmpty) ...[
+                const Divider(height: 20, color: AppColors.line),
+                Text('공고에 자주 나온 기술', style: AppText.small.copyWith(fontSize: 12)),
+                const SizedBox(height: 6),
+                ChipWrap(children: [for (final k in posting.skills) TagBadge(k, tone: BadgeTone.gray)]),
+              ],
+              if (posting != null && posting.certificates.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Text('공고에 나온 자격증', style: AppText.small.copyWith(fontSize: 12)),
+                const SizedBox(height: 6),
+                ChipWrap(children: [for (final k in posting.certificates) TagBadge(k, tone: BadgeTone.gray)]),
+              ],
             ]),
           ),
           Text(criteria.note, style: AppText.caption),
@@ -141,6 +157,7 @@ class _CriteriaRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 7),
       child: Row(children: [
         SizedBox(width: 84, child: Text(area.label, style: AppText.bodyBold.copyWith(fontSize: 13))),
+        if (criteria.sourceOf(area) == CriteriaSource.posting) const TagBadge('공고'),
         Expanded(
           child: Text(
             text,

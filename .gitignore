@@ -42,3 +42,6 @@ windows/flutter/ephemeral/
 # 비밀 값
 .env
 .env.*
+
+# 파이썬 도구 캐시
+__pycache__/

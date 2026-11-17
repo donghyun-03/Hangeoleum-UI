@@ -145,7 +145,10 @@ class TargetCompany {
 /// 기준치를 어디서 가져왔는지
 enum CriteriaSource {
   /// 기업 유형 × 직무로 우리가 정한 대략적인 기준 (data/criteria_data.dart)
-  rough('기본 기준');
+  rough('기본 기준'),
+
+  /// 관심기업 채용 공고에서 모은 기준 (data/posting_criteria_data.dart, 크롤링 버전)
+  posting('채용 공고');
 
   const CriteriaSource(this.label);
   final String label;
@@ -163,6 +166,8 @@ class CompanyCriteria {
     required this.minTeamwork,
     this.sources = const {},
     this.note = '',
+    this.extraKeywords = const [],
+    this.posting,
   });
 
   final TargetCompany target;
@@ -191,6 +196,12 @@ class CompanyCriteria {
   /// 기준 설명 (화면 하단 안내 문구)
   final String note;
 
+  /// 직무연관성 판단에 더 쓸 단어 (공고에 자주 나온 기술·자격증)
+  final List<String> extraKeywords;
+
+  /// 공고 기준을 썼다면 그 공고 묶음 (출처·수집일 표시용)
+  final PostingCriteria? posting;
+
   CriteriaSource sourceOf(CriteriaArea area) => sources[area] ?? CriteriaSource.rough;
 
   CompanyCriteria copyWith({
@@ -204,6 +215,8 @@ class CompanyCriteria {
     int? minTeamwork,
     Map<CriteriaArea, CriteriaSource>? sources,
     String? note,
+    List<String>? extraKeywords,
+    PostingCriteria? posting,
   }) =>
       CompanyCriteria(
         target: target,
@@ -215,7 +228,96 @@ class CompanyCriteria {
         minTeamwork: minTeamwork ?? this.minTeamwork,
         sources: sources ?? this.sources,
         note: note ?? this.note,
+        extraKeywords: extraKeywords ?? this.extraKeywords,
+        posting: posting ?? this.posting,
       );
+}
+
+/// 관심기업 채용 공고 여러 건에서 모은 기준 (크롤링 버전)
+/// tool/crawl_postings.py → tool/postings_to_dart.py 로 data/posting_criteria_data.dart 에 만들어집니다.
+class PostingCriteria {
+  const PostingCriteria({
+    required this.company,
+    required this.job,
+    required this.jobGroup,
+    required this.source,
+    required this.fetchedAt,
+    required this.postingCount,
+    this.detailCount = 0,
+    this.education,
+    this.minGpa,
+    this.minEnglish,
+    this.englishPreferred = false,
+    this.portfolioRate = 0,
+    this.teamworkRate = 0,
+    this.skills = const [],
+    this.certificates = const [],
+    this.careers = const [],
+    this.postingUrls = const [],
+  });
+
+  /// 검색한 기업 이름 (예: 네이버)
+  final String company;
+
+  /// 검색한 직무 (예: 백엔드). 비어 있을 수 있음
+  final String job;
+  final JobGroup jobGroup;
+
+  /// 출처 사이트 이름 (예: 사람인)
+  final String source;
+
+  /// 수집한 날 (YYYY-MM-DD)
+  final String fetchedAt;
+
+  /// 모은 공고 수
+  final int postingCount;
+
+  /// 본문 글을 읽을 수 있었던 공고 수 (0 이면 이미지 공고뿐 → 학력만 믿을 수 있음)
+  final int detailCount;
+
+  /// 공고에 가장 많이 적힌 학력 (null = 알 수 없음)
+  final EduLevel? education;
+
+  /// 필수 학점 (4.5 환산, 공고에 적힌 경우만)
+  final double? minGpa;
+
+  /// 필수 영어 점수 (TOEIC 환산, 공고에 적힌 경우만)
+  final int? minEnglish;
+
+  /// 어학이 필수는 아니고 우대로만 적혀 있는지
+  final bool englishPreferred;
+
+  /// 포트폴리오·깃허브를 언급한 공고 비율 (0~1)
+  final double portfolioRate;
+
+  /// 협업·커뮤니케이션을 언급한 공고 비율 (0~1)
+  final double teamworkRate;
+
+  /// 공고에 자주 나온 기술 키워드
+  final List<String> skills;
+
+  /// 공고에 나온 자격증
+  final List<String> certificates;
+
+  /// 경력 조건 (예: 신입, 경력무관)
+  final List<String> careers;
+
+  /// 원문 링크 (최대 5개)
+  final List<String> postingUrls;
+
+  bool get hasDetail => detailCount > 0;
+
+  /// 화면 표시용 (예: 사람인 공고 7건 · 2026-11-17 수집)
+  String get label => '$source 공고 $postingCount건 · $fetchedAt 수집';
+
+  static String _norm(String v) =>
+      v.replaceAll(RegExp(r'\(주\)|㈜|주식회사|\s+'), '').toLowerCase();
+
+  /// 관심기업 이름과 같은 기업인지 (괄호·띄어쓰기 무시)
+  bool matchesCompany(String name) {
+    final a = _norm(company), b = _norm(name);
+    return a.isNotEmpty && b.isNotEmpty && (a.contains(b) || b.contains(a));
+  }
 }
 
 /// 영역별 충족 상태
