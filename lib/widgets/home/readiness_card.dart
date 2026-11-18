@@ -31,9 +31,7 @@ BadgeTone toneOf(AreaStatus s) => switch (s) {
     case UserStage.social:
       return (
         title: '사람 만나기: 동네 청년센터 모임 하나 찾아보기',
-        note: weak.area == ReadinessArea.teamwork
-            ? '사람들과 만나는 경험이 ${josa(weak.label, '으로', '로')} 이어져요.'
-            : '사람들과 연결되면 ${weak.label}도 같이 채워 가요.',
+        note: '사람들과 연결되면 ${weak.label}도 같이 채워 가요.',
       );
     case UserStage.explore:
     case UserStage.ready:

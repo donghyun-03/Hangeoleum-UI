@@ -23,14 +23,14 @@ class _FakeJudge implements ReadinessJudge {
   Future<ReadinessResult> judge(ReadinessInput input) async {
     calls++;
     return BazeReadinessJudge.parse({
-      'score': 66,
+      'score': 20,
       'summary': '기록이 잘 쌓이고 있어요.',
       'areas': [
-        {'key': 'portfolio', 'score': 70, 'gaps': ['결과물 링크가 하나뿐이에요.'], 'evidence': ['엑셀 워크숍'], 'next_action': '기록에 결과물 붙이기'},
-        {'key': 'grades', 'score': 90},
-        {'key': 'language', 'score': 20, 'gaps': ['어학 성적이 없어요.'], 'next_action': '오픽 일정 확인'},
-        {'key': 'job_skill', 'score': 55},
-        {'key': 'teamwork', 'score': 85},
+        {'key': 'portfolio', 'score': 30, 'weight': 25, 'gaps': ['결과물 링크가 하나뿐이에요.'], 'evidence': ['엑셀 워크숍'], 'next_action': '기록에 결과물 붙이기'},
+        {'key': 'grades', 'score': 0, 'weight': 10},
+        {'key': 'language', 'score': 0, 'weight': 10, 'gaps': ['어학 성적이 없어요.'], 'next_action': '오픽 일정 확인'},
+        {'key': 'job_skill', 'score': 40, 'weight': 40},
+        {'key': 'certificate', 'score': 0, 'weight': 15},
       ],
       'fill': {'key': 'language', 'title': '어학: 오픽 시험 일정 확인하기', 'reason': '대기업 서류에 어학이 필요해요.'},
     }, input.ruleResult());
@@ -40,8 +40,8 @@ class _FakeJudge implements ReadinessJudge {
 void main() {
   test('비중은 5개 합이 1, 대학을 안 다니면 성적 비중은 어학으로', () {
     for (final field in ['IT·데이터', '디자인·영상', '사무·행정', null]) {
-      for (final company in ['대기업', '스타트업', '중소기업', null]) {
-        final t = ReadinessTarget(field: field, companyType: company, gpa45: 3.5, toeic: 800);
+      for (final company in ['대기업', '스타트업', '중소기업', '공기업·공공기관', null]) {
+        final t = ReadinessTarget(field: field, companyType: company, gpa45: 3.5, toeic: 800, toeicCutoff: 700);
         expect(ReadinessService.weightsOf(t).reduce((a, b) => a + b), closeTo(1.0, 0.0001));
         final noGpa = ReadinessService.weightsOf(t, hasGpa: false);
         expect(noGpa[1], 0);
@@ -94,7 +94,7 @@ void main() {
     final weighted = r.areas.fold<double>(0, (s, a) => s + a.score * a.weight).round();
     expect(r.score, weighted + 5);
     expect(r.area(ReadinessArea.portfolio).score, 75);
-    expect(r.area(ReadinessArea.teamwork).score, rule.area(ReadinessArea.teamwork).score);
+    expect(r.area(ReadinessArea.certificate).score, rule.area(ReadinessArea.certificate).score);
     expect(r.weakest.area, ReadinessArea.portfolio);
     expect(() => BazeReadinessJudge.parse({'areas': []}, rule), throwsA(anything));
   });
@@ -125,7 +125,7 @@ void main() {
     expect(state.readiness.source, ReadinessSource.rule);
     await state.refreshReadiness();
     expect(state.readiness.source, ReadinessSource.ai);
-    expect(state.readiness.score, 66);
+    expect(state.readiness.score, 20);
     expect(state.readiness.weakest.area, ReadinessArea.language);
     await state.refreshReadiness();
     expect(judge.calls, 1); // 그대로면 다시 안 부름
@@ -216,6 +216,62 @@ void main() {
     expect(store.load(mockUser.id)?.likes, ['게임', '사진']);
   });
 
+  test('어학: 커트라인을 넘으면 충족 — 공기업에 OPIc IM 이면 85점', () {
+    final pub = ReadinessService.targetOf(const DiagnosisProfile({'interest': '사무·행정', 'company_preference': '공기업·공공기관'}), mockUser);
+    expect(pub.toeicCutoff, 700);
+    final im = ReadinessService.toeicEquivalent(const LanguageScore(exam: 'OPIc', score: 'IM'));
+    expect(ReadinessService.languageScore(im, pub), 85);
+    expect(ReadinessService.languageScore(600, pub), lessThan(60));
+    expect(ReadinessService.languageScore(null, pub), 0);
+  });
+
+  test('AI 답: 비중은 AI 가 정하고(0 이면 숨김), 성적·어학은 규칙 점수 ±10 안에서만', () {
+    final user = mockUser.copyWith(languages: const [LanguageScore(exam: 'OPIc', score: 'IM')]);
+    const d = DiagnosisProfile({'interest': '디자인·영상', 'company_preference': '스타트업'});
+    final rule = _eval(d, user: user);
+    final r = BazeReadinessJudge.parse({
+      'score': 99,
+      'areas': [
+        {'key': 'portfolio', 'score': 10, 'weight': 60},
+        {'key': 'grades', 'score': 0, 'weight': 5},
+        {'key': 'language', 'score': 20, 'weight': 5},
+        {'key': 'job_skill', 'score': 10, 'weight': 30},
+        {'key': 'certificate', 'score': 0, 'weight': 0},
+      ],
+    }, rule);
+    expect(r.area(ReadinessArea.portfolio).weight, closeTo(0.6, 0.001));
+    expect(r.shownAreas.map((a) => a.area), isNot(contains(ReadinessArea.certificate)));
+    final ruleLang = rule.area(ReadinessArea.language).score;
+    expect(ruleLang, greaterThanOrEqualTo(70)); // 스타트업 커트라인 500, IM 750 → 충족
+    expect(r.area(ReadinessArea.language).score, ruleLang - 10); // AI 가 20 을 줘도 규칙 -10 까지만
+    final weighted = r.areas.fold<double>(0, (s, a) => s + a.score * a.weight).round();
+    expect(r.score, weighted + 5);
+  });
+
+  test('자격증: 목표에 맞는 자격증 2개면 100, 공기업은 한국사도 인정', () {
+    const d = DiagnosisProfile({'interest': '사무·행정', 'company_preference': '공기업·공공기관'});
+    final none = _eval(d);
+    expect(none.area(ReadinessArea.certificate).score, 0);
+    expect(none.area(ReadinessArea.certificate).weight, greaterThan(none.area(ReadinessArea.portfolio).weight));
+    final two = _eval(d,
+        user: mockUser.copyWith(certificates: const [Certificate(name: '컴퓨터활용능력 1급'), Certificate(name: '한국사능력검정 1급')]));
+    expect(two.area(ReadinessArea.certificate).score, 100);
+    final other = _eval(d, user: mockUser.copyWith(certificates: const [Certificate(name: '운전면허 1종')]));
+    expect(other.area(ReadinessArea.certificate).score, 15);
+  });
+
+  test('기업·직무를 정했다고 답했으면 이름을 안 적어도 "끌리는 것 적기" 대상이 아니다', () {
+    final state = AppState()..loginAs(UserRole.youth);
+    state.updateDiagnosisAnswer('interest', '사무·행정');
+    state.updateDiagnosisAnswer('company_preference', '공기업·공공기관');
+    state.updateDiagnosisAnswer('target_clarity', '목표 기업과 직무 모두 있어요');
+    state.updateDiagnosisAnswer('target_job_name', '');
+    expect(state.diagnosis.targetJobName, isNull);
+    expect(state.needsDirection, isFalse);
+    state.updateDiagnosisAnswer('target_clarity', '아직 찾아가는 중이에요');
+    expect(state.needsDirection, isTrue);
+  });
+
   test('하루 상태 → 단계, 답을 바꾸면 안 묻는 질문은 지우고 적어 둔 직무는 살린다', () {
     expect(stageOf(const DiagnosisProfile({'current_status': '일상 리듬이 무너져 대부분 집에서 보내고 있어요.'})), UserStage.rhythm);
     final changed = mockDiagnosis.withAnswer('company_preference', '아직 고민 중이에요');
@@ -247,7 +303,7 @@ void main() {
     expect(find.textContaining('지금 채우면 좋은 것 ·'), findsOneWidget);
     await tester.tap(find.text('준비도'));
     await tester.pumpAndSettle();
-    for (final label in ['포트폴리오', '성적', '어학', '직무 역량', '협업 경험']) {
+    for (final label in ['포트폴리오', '성적', '어학', '직무 역량', '자격증']) {
       expect(find.text(label), findsWidgets);
     }
     expect(find.text('지금 채우면 좋은 것'), findsOneWidget);
@@ -271,8 +327,15 @@ void main() {
     await tester.pumpAndSettle();
     // 진단에서 어학 성적이 없다고 했으면 어학 카드는 안 나온다
     expect(find.text('어학 성적 넣기'), findsNothing);
-    expect(find.text('준비도 보는 법'), findsOneWidget);
-    await tester.drag(find.text('준비도 보는 법'), const Offset(350, 0));
+    // IT 대기업 기준은 자격증도 조금 봐서 자격증 카드가 나온다
+    expect(find.text('자격증 넣기'), findsOneWidget);
+    await tester.drag(find.text('자격증 넣기'), const Offset(-350, 0));
+    await tester.pumpAndSettle();
+    // 진단에서 "포트폴리오만 있어요" → 기록이 이미 있어도 포트폴리오 적기 카드가 나온다
+    expect(find.text('포트폴리오 적기'), findsOneWidget);
+    await tester.drag(find.text('포트폴리오 적기'), const Offset(350, 0));
+    await tester.pumpAndSettle();
+    await tester.drag(find.text('자격증 넣기'), const Offset(350, 0));
     await tester.pumpAndSettle();
     expect(find.text('학점 넣기'), findsOneWidget);
 

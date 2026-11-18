@@ -7,6 +7,7 @@ import '../../router/routes.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
+import '../../widgets/home/certificate_dialog.dart';
 import '../../models/models.dart';
 import 'profile_edit_screen.dart';
 
@@ -146,6 +147,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         gpa: (g != null && g > selected) ? selected : g,
       ),
     );
+  }
+
+  Future<void> _addCertificate() async {
+    final c = await showCertificateDialog(context);
+    if (c == null || !mounted) return;
+    context.read<AppState>().updateUser((u) => u.copyWith(certificates: [...u.certificates, c]));
   }
 
   Future<void> _addLanguage() async {
@@ -419,6 +426,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 backgroundColor: AppColors.paper,
                 side: const BorderSide(color: AppColors.greenLine),
                 onPressed: _addLanguage,
+              ),
+            ],
+          ),
+          const SectionTitle('자격증'),
+          ChipWrap(
+            children: [
+              for (var i = 0; i < u.certificates.length; i++)
+                InputChip(
+                  label: Text(
+                    '${u.certificates[i].name}'
+                    '${u.certificates[i].year == null ? '' : ' (${u.certificates[i].year})'}',
+                    style: AppText.body.copyWith(fontSize: 12.5),
+                  ),
+                  backgroundColor: AppColors.soft,
+                  side: BorderSide.none,
+                  deleteIconColor: AppColors.subtle,
+                  onDeleted: () => context.read<AppState>().updateUser(
+                    (x) => x.copyWith(certificates: [...x.certificates]..removeAt(i)),
+                  ),
+                ),
+              ActionChip(
+                label: Text(
+                  '+ 추가',
+                  style: AppText.body.copyWith(
+                    fontSize: 12.5,
+                    color: AppColors.green,
+                  ),
+                ),
+                backgroundColor: AppColors.paper,
+                side: const BorderSide(color: AppColors.greenLine),
+                onPressed: _addCertificate,
               ),
             ],
           ),

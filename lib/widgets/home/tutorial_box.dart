@@ -11,6 +11,7 @@ import '../../services/readiness_service.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../common.dart';
+import 'certificate_dialog.dart';
 
 class _Step {
   const _Step(this.id, this.title, this.body, this.action, this.onAction);
@@ -37,9 +38,18 @@ List<_Step> _stepsFor(AppState state) {
     // 진단에서 어학 성적이 "있다"고 한 사람에게만
     if (u.languages.isEmpty && d.hasLanguageScore == true)
       _Step('language', '어학 성적 넣기', '진단에서 어학 성적이 있다고 했어요. 가장 최근 점수 하나만 넣어 주세요.', '어학 입력', _askLanguage),
-    if (d.hasPortfolio == true && !state.records.any((r) => r.attachments.isNotEmpty))
-      _Step('portfolio', '포트폴리오 올리기', '진단에서 포트폴리오가 있다고 했어요. 공모전·프로젝트 하나를 기록하고 파일이나 링크를 붙이면 준비도가 올라가요.',
-          '기록 쓰기', (c) => AppNav.toRecordWrite(c))
+    // 목표 회사·직무가 자격증을 보는 곳(자격증 비중 10% 넘음)이고 아직 하나도 안 넣었으면
+    if (u.certificates.isEmpty && state.readiness.area(ReadinessArea.certificate).weight > 0.1)
+      _Step('certificate', '자격증 넣기', '${state.readiness.target.label} 기준에서는 자격증도 봐요. 이미 딴 자격증이 있으면 넣어 주세요. 없으면 건너뛰어도 돼요.',
+          '자격증 입력', _askCertificate),
+    // 진단에서 포트폴리오가 "있다"고 했으면 (기존 기록이 있어도) 한 번은 올리라고 안내합니다.
+    // "기록 쓰기"를 누르거나 건너뛰면 이 카드는 사라져요.
+    if (d.hasPortfolio == true)
+      _Step('portfolio', '포트폴리오 적기', '진단에서 포트폴리오가 있다고 했어요. 해 본 공모전·프로젝트를 기록하고 파일이나 링크를 붙이면 준비도에 바로 반영돼요.',
+          '기록 쓰기', (c) {
+        c.read<AppState>().skipTutorialStep('portfolio');
+        AppNav.toRecordWrite(c);
+      })
     else if (state.records.isEmpty)
       _Step('record', '첫 활동 기록 남기기', '해 본 일을 편하게 적으면 AI가 정리해 줘요. 기록이 쌓일수록 준비도가 정확해져요.', '기록 쓰기',
           (c) => AppNav.toRecordWrite(c)),
@@ -339,4 +349,11 @@ Future<void> _askLikes(BuildContext context) async {
   );
   ctrl.dispose();
   if (saved == true && picked.isNotEmpty) state.setLikes(picked.toList());
+}
+
+Future<void> _askCertificate(BuildContext context) async {
+  final state = context.read<AppState>();
+  final c = await showCertificateDialog(context);
+  if (c == null) return;
+  state.updateUser((u) => u.copyWith(certificates: [...u.certificates, c]));
 }

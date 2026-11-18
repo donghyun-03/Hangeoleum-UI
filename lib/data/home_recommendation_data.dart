@@ -30,8 +30,7 @@ List<HomeRecommendation> buildHomeRecommendations(AppState state, {int maxCount 
     UserStage.social => [_Kind.meetMission, _Kind.team, _Kind.lifeMission],
     UserStage.explore => [_Kind.program, _Kind.jobMission, _Kind.team],
     UserStage.ready => switch (weakest.area) {
-        ReadinessArea.teamwork => [_Kind.team, _Kind.program, _Kind.job],
-        ReadinessArea.grades || ReadinessArea.language => [_Kind.program, _Kind.jobMission, _Kind.job],
+        ReadinessArea.grades || ReadinessArea.language || ReadinessArea.certificate => [_Kind.program, _Kind.jobMission, _Kind.job],
         _ => [_Kind.program, _Kind.team, _Kind.job],
       },
   };
@@ -140,9 +139,9 @@ List<HomeRecommendation> _candidates(
               step: 2,
               title: post.title,
               detail: [post.category, '${post.weeks}주', post.mode].join(' · '),
-              reason: weakest.area == ReadinessArea.teamwork
+              reason: weakest.area == ReadinessArea.portfolio
                   ? gapReason
-                  : '함께하는 경험이 협업 경험으로 쌓여요.',
+                  : '함께 만든 결과물이 포트폴리오로 쌓여요.',
               type: HomeRecommendationType.team,
             ),
       ];

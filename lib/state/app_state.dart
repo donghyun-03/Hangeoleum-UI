@@ -479,6 +479,7 @@ class AppState extends ChangeNotifier {
         acceptedTeams: acceptedTeams,
         doneTeamIds: doneTeamIds,
         likes: _likes,
+        needsDirection: needsDirection,
       );
 
   /// AI 판단기. 키 없이 실행하면 null → 규칙 계산만 씁니다. (테스트에서 가짜로 바꿔 끼울 수 있어요)
@@ -532,9 +533,11 @@ class AppState extends ChangeNotifier {
   List<String> get likes => List.unmodifiable(_likes);
 
   /// 분야·기업·직무를 아직 모르는 사람인지 (관심 찾기 카드·AI 방향 추천 대상)
+  /// 진단에서 "모르겠어요 / 고민 중 / 아직 없어요 / 찾아가는 중"이라고 답한 것이 있을 때만 true.
+  /// 직무·기업을 정했다고 답했으면 이름 칸을 비워 뒀어도 false 입니다.
   bool get needsDirection {
     final d = effectiveDiagnosis;
-    return d.interests.isEmpty || (d.companySize == null && d.companyType == null) || d.targetJobName == null;
+    return d.interests.isEmpty || d.companyPreference == '아직 고민 중이에요' || d.hasDesiredJob == false;
   }
 
   void setLikes(List<String> likes) {

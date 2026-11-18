@@ -27,6 +27,13 @@ class LanguageScore {
   const LanguageScore({required this.exam, required this.score, this.year});
 }
 
+/// 자격증 (예: 컴퓨터활용능력 1급, 2025)
+class Certificate {
+  final String name;
+  final int? year;
+  const Certificate({required this.name, this.year});
+}
+
 class AppUser {
   final String id;
   final UserRole role;
@@ -47,6 +54,7 @@ class AppUser {
   final double? gpa;
   final double gpaScale;
   final List<LanguageScore> languages;
+  final List<Certificate> certificates;
 
   const AppUser({
     required this.id,
@@ -68,6 +76,7 @@ class AppUser {
     this.gpa,
     this.gpaScale = 4.5,
     this.languages = const [],
+    this.certificates = const [],
   });
 
   AppUser copyWith({
@@ -89,6 +98,7 @@ class AppUser {
     double? gpa,
     double? gpaScale,
     List<LanguageScore>? languages,
+    List<Certificate>? certificates,
   }) {
     return AppUser(
       id: id,
@@ -110,6 +120,7 @@ class AppUser {
       gpa: gpa ?? this.gpa,
       gpaScale: gpaScale ?? this.gpaScale,
       languages: languages ?? this.languages,
+      certificates: certificates ?? this.certificates,
     );
   }
 }

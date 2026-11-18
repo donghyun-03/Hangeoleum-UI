@@ -114,9 +114,9 @@ class _AreaDetail extends StatelessWidget {
         Navigator.pushNamed(context, Routes.recordList);
       case ReadinessArea.grades:
       case ReadinessArea.language:
+      case ReadinessArea.certificate:
         Navigator.pushNamed(context, Routes.profile);
       case ReadinessArea.jobSkill:
-      case ReadinessArea.teamwork:
         // 홈으로 돌아가 아래 추천 활동에서 고르게 합니다.
         Navigator.pop(context);
     }
@@ -150,13 +150,15 @@ class _HowItWorks extends StatelessWidget {
     final weights = result.shownAreas.map((a) => '${a.label} ${(a.weight * 100).round()}%').join(' · ');
     final lines = [
       if (result.source == ReadinessSource.ai)
-        'AI가 활동 기록·성적·어학·진단 답을 보고 항목 점수와 준비도를 판단해요. 아래 비중과 기준을 AI에게 참고로 함께 줘요.',
+        'AI가 활동 기록·성적·어학·자격증·진단 답을 보고 항목 점수와 준비도를 판단해요. 비중도 AI가 목표 회사·직무가 실제로 무엇을 보는지에 맞춰 정해요. (자격증을 거의 안 보는 곳은 자격증 칸이 사라져요)',
       '준비도 = 항목 점수 × 비중을 모두 더한 값이에요. 80점 이상 "지원해 볼 만해요", 60~79점 "거의 다 왔어요", 60점 미만 "준비 중".',
-      '지금 비중: $weights (관심 분야 ${t.field ?? '미정'} · 희망 기업 ${t.companyType ?? '고민 중'} 기준)',
+      '지금 비중: $weights (${t.label} 기준)',
       '항목 점수는 근거로 매겨요. 첨부·수료증이 있으면 1.0, 숫자로 된 결과가 있으면 0.6, 기록만 있으면 0.3. 100점은 신입 합격자 수준이라 처음엔 낮게 나와요.',
       '항목 배지: 80점 이상 충족, 40~79점 일부, 40점 미만 부족.',
       '"지금 채우면 좋은 것"은 채웠을 때 준비도가 가장 많이 오르는 항목이에요. 단, 생활 리듬이나 사람 만나기 단계라면 그 단계에 맞는 일부터 추천해요.',
-      '목표 학점·어학: ${t.companyType ?? '고민 중'} 기준 학점 ${t.gpa45} / 4.5, 토익 ${t.toeic}점. (2025 상반기 공채 지원자 평균 학점 3.68, 토익 848점 · 자소설닷컴)',
+      '목표 학점: ${t.companyType ?? '고민 중'} 기준 ${t.gpa45} / 4.5. (2025 상반기 공채 지원자 평균 학점 3.68 · 자소설닷컴)',
+      '어학: 서류 커트라인(토익 약 ${t.toeicCutoff}점)을 넘으면 70점부터, 토익 ${t.toeic}점이면 100점. OPIc·토익스피킹은 토익 점수로 대략 바꿔서 봐요. 실제 커트라인은 회사 공고마다 달라요.',
+      '자격증: 목표 회사·직무에서 많이 보는 자격증 1개당 50점, 다른 자격증은 1개당 15점(최대 30점).',
       '직무 역량 비중을 가장 크게 둔 이유: 기업 74.6%가 신입 채용에서 "직무 관련 업무 경험"을 가장 중요하게 봐요. (경총 2024 신규채용 실태조사)',
     ];
     return Column(

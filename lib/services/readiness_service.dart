@@ -1,6 +1,6 @@
 // 홈 "준비도" 계산 (구조 3안: 부족한 것만 추천)
 //
-// 항목 5개(포트폴리오·성적·어학·직무 역량·협업 경험)를 각각 0~100점으로 매기고, 관심 분야·희망 기업 유형에 따라 다른 비중으로 더합니다.
+// 항목 5개(포트폴리오·성적·어학·직무 역량·자격증)를 각각 0~100점으로 매기고, 관심 분야·희망 기업 유형에 따라 다른 비중으로 더합니다.
 //   준비도 = Σ (항목 점수 × 항목 비중)
 //
 // 항목 점수는 "근거"로 매깁니다. (기록만 있으면 0.3, 숫자 결과가 있으면 0.6, 첨부·수료증이 있으면 1.0)
@@ -17,14 +17,14 @@ import '../models/diagnosis_profile.dart';
 import '../models/models.dart';
 
 /// 홈에 보이는 5개 항목
-enum ReadinessArea { portfolio, grades, language, jobSkill, teamwork }
+enum ReadinessArea { portfolio, grades, language, jobSkill, certificate }
 
 const readinessAreaLabel = {
   ReadinessArea.portfolio: '포트폴리오',
   ReadinessArea.grades: '성적',
   ReadinessArea.language: '어학',
   ReadinessArea.jobSkill: '직무 역량',
-  ReadinessArea.teamwork: '협업 경험',
+  ReadinessArea.certificate: '자격증',
 };
 
 /// AI 와 저장소에서 쓰는 영문 키
@@ -33,7 +33,7 @@ const readinessAreaKey = {
   ReadinessArea.grades: 'grades',
   ReadinessArea.language: 'language',
   ReadinessArea.jobSkill: 'job_skill',
-  ReadinessArea.teamwork: 'teamwork',
+  ReadinessArea.certificate: 'certificate',
 };
 
 ReadinessArea? areaFromKey(String? key) {
@@ -166,6 +166,7 @@ class AreaResult {
   final ReadinessArea area;
 
   /// false 면 이 사람에게 해당 없는 항목 (예: 대학을 안 다녔으면 성적). 비중 0.
+  /// 비중이 0 인 항목(예: 자격증을 거의 안 보는 곳)도 화면에서 숨깁니다. ([ReadinessResult.shownAreas])
   final bool applicable;
 
   /// 실제 값 표시용 (성적: 학점, 어학: 토익 환산). 없으면 점수/100 으로 보여 줍니다.
@@ -176,7 +177,7 @@ class AreaResult {
   /// 0~100
   final int score;
 
-  /// 준비도에서 차지하는 비중 (0~1, 4개 합 1)
+  /// 준비도에서 차지하는 비중 (0~1, 5개 합 1)
   final double weight;
   final List<Evidence> evidence;
 
@@ -200,10 +201,11 @@ class AreaResult {
   /// 이 항목을 100점으로 채우면 준비도가 몇 점 오르는지
   int get gain => applicable ? ((100 - score) * weight).round() : 0;
 
-  AreaResult copyWith({int? score, List<String>? gaps, String? nextAction, List<Evidence>? evidence}) => AreaResult(
+  AreaResult copyWith({int? score, double? weight, List<String>? gaps, String? nextAction, List<Evidence>? evidence}) =>
+      AreaResult(
         area: area,
         score: score ?? this.score,
-        weight: weight,
+        weight: weight ?? this.weight,
         evidence: evidence ?? this.evidence,
         gaps: gaps ?? this.gaps,
         nextAction: nextAction ?? this.nextAction,
@@ -254,6 +256,7 @@ class ReadinessTarget {
     required this.companyType,
     required this.gpa45,
     required this.toeic,
+    required this.toeicCutoff,
     this.companyName,
     this.jobName,
   });
@@ -267,8 +270,11 @@ class ReadinessTarget {
   /// 목표 학점 (4.5 만점 기준)
   final double gpa45;
 
-  /// 목표 어학 (토익 환산)
+  /// 목표 어학 (토익 환산). 이 점수면 100점
   final int toeic;
+
+  /// 서류 커트라인 (토익 환산). 넘으면 어학은 최소 70점(충족에 가까움)
+  final int toeicCutoff;
   final String? companyName;
   final String? jobName;
 
@@ -316,7 +322,7 @@ class ReadinessResult {
   final Direction? direction;
   final DateTime? judgedAt;
 
-  List<AreaResult> get shownAreas => areas.where((a) => a.applicable).toList();
+  List<AreaResult> get shownAreas => areas.where((a) => a.applicable && a.weight > 0).toList();
 
   int get metCount => shownAreas.where((a) => a.status == AreaStatus.met).length;
 
@@ -330,7 +336,7 @@ class ReadinessResult {
   AreaResult get weakest {
     if (fillArea != null) {
       for (final a in areas) {
-        if (a.area == fillArea && a.applicable) return a;
+        if (a.area == fillArea && a.applicable && a.weight > 0) return a;
       }
     }
     final sorted = [...shownAreas]
@@ -383,25 +389,45 @@ class ReadinessService {
 
   // ───────────── 기준값
 
-  /// 기업 유형별 목표 (학점 4.5 만점, 토익 환산)
-  /// 대기업은 2025 상반기 지원자 평균(3.68 / 848)을 반올림한 값, 나머지는 그보다 낮춘 앱 기준값입니다.
-  static const companyTargets = <String, (double, int)>{
-    '대기업': (3.7, 850),
-    '공기업·공공기관': (3.5, 800),
-    '중견기업': (3.5, 750),
-    '중소기업': (3.2, 650),
-    '스타트업': (3.0, 600),
+  /// 기업 유형별 목표 (학점 4.5 만점, 어학 커트라인, 어학 목표 — 어학은 토익 환산)
+  /// 대기업 목표는 2025 상반기 지원자 평균(3.68 / 848)을 반올림한 값, 나머지는 앱 기준값입니다.
+  /// 어학은 "커트라인을 넘었는지"가 가장 중요합니다. (공기업은 보통 토익 700 정도 이상이면 지원 가능, 기관마다 다름)
+  static const companyTargets = <String, (double, int, int)>{
+    '대기업': (3.7, 700, 850),
+    '공기업·공공기관': (3.5, 700, 800),
+    '중견기업': (3.5, 600, 750),
+    '중소기업': (3.2, 550, 650),
+    '스타트업': (3.0, 500, 600),
   };
-  static const _undecidedTarget = (3.3, 700);
+  static const _undecidedTarget = (3.3, 600, 700);
 
-  /// 관심 분야별 비중 (포트폴리오, 성적, 어학, 직무 역량, 협업)
+  /// 관심 분야별 비중 (포트폴리오, 성적, 어학, 직무 역량, 자격증)
   /// 직무 경험(직무 역량)은 어느 분야든 가장 중요하게 둡니다. (경총 조사 1위)
+  /// 자격증은 사무·행정(컴활 등)에서 높게, 디자인처럼 결과물로 보는 분야에서는 낮게 둡니다.
+  /// AI 판단에서는 AI 가 목표 회사·직무를 보고 비중을 다시 정합니다. (readiness_ai.dart)
   static const fieldWeights = <String, List<double>>{
-    'IT·데이터': [0.30, 0.07, 0.08, 0.35, 0.20],
-    '디자인·영상': [0.40, 0.05, 0.05, 0.30, 0.20],
+    'IT·데이터': [0.30, 0.07, 0.08, 0.40, 0.15],
+    '디자인·영상': [0.45, 0.05, 0.05, 0.40, 0.05],
     '사무·행정': [0.15, 0.15, 0.15, 0.35, 0.20],
   };
-  static const _defaultWeights = [0.25, 0.10, 0.10, 0.35, 0.20];
+  static const _defaultWeights = [0.25, 0.10, 0.10, 0.40, 0.15];
+
+  /// 분야별로 서류에서 많이 보는 자격증 (이름에 이 낱말이 있으면 "목표에 맞는 자격증")
+  static const fieldCertificates = <String, List<String>>{
+    'IT·데이터': ['정보처리', 'SQLD', 'SQL', 'ADsP', 'ADP', '빅데이터', '리눅스', '네트워크관리사', 'AWS', '정보보안'],
+    '디자인·영상': ['GTQ', '컬러리스트', '시각디자인', '웹디자인', '컴퓨터그래픽', 'ACA', '영상'],
+    '사무·행정': ['컴퓨터활용', '컴활', '전산회계', '전산세무', '회계', 'ERP', '워드프로세서', 'MOS', '비서', '사무자동화'],
+  };
+
+  /// 공기업에서 가산점이 흔한 자격증
+  static const publicCertificates = ['한국사', '컴퓨터활용', '컴활'];
+
+  /// 분야별로 처음 따기 좋은 자격증 (할 일 문장용)
+  static const firstCertificate = <String, String>{
+    'IT·데이터': 'SQLD',
+    '디자인·영상': 'GTQ',
+    '사무·행정': '컴퓨터활용능력 2급',
+  };
 
   /// 분야별 "직무 관련" 기록을 찾는 낱말
   static const fieldKeywords = <String, List<String>>{
@@ -409,8 +435,6 @@ class ReadinessService {
     '디자인·영상': ['디자인', '영상', '편집', '피그마', 'Figma', '포토샵', '일러스트', '촬영', '브랜딩', '썸네일', '프리미어', '콘텐츠'],
     '사무·행정': ['엑셀', '문서', '행정', '사무', '회계', '정리', '보고서', '컴활', 'ERP', '워드', '파워포인트', '민원', '자료'],
   };
-
-  static const _teamKeywords = ['팀', '함께', '동아리', '협업', '공동', '스터디', '모임', '발표', '프로젝트'];
 
   // ───────────── 계산
 
@@ -420,35 +444,53 @@ class ReadinessService {
         ? (user.interests.isEmpty ? null : user.interests.first)
         : interest;
     final company = companyTargets.containsKey(d.companyPreference) ? d.companyPreference : null;
-    final (gpa, toeic) = companyTargets[company] ?? _undecidedTarget;
+    final (gpa, cutoff, toeic) = companyTargets[company] ?? _undecidedTarget;
     return ReadinessTarget(
       field: field,
       companyType: company,
       gpa45: gpa,
       toeic: toeic,
+      toeicCutoff: cutoff,
       companyName: d.targetCompanyName,
       jobName: d.targetJobName,
     );
   }
 
-  /// [hasGpa] 가 false 면(대학을 안 다님) 성적 비중을 어학으로 옮깁니다.
+  /// [hasGpa] 가 false 면(대학을 안 다님) 성적 비중을 어학으로 옮깁니다. 합은 항상 1.
   static List<double> weightsOf(ReadinessTarget t, {bool hasGpa = true}) {
     final w = [...(fieldWeights[t.field] ?? _defaultWeights)];
-    // 대기업·공기업은 서류 기준(학점·어학)이 있는 곳이 많아 성적·어학 +5, 스타트업은 포트폴리오 +5
-    if (t.companyType == '대기업' || t.companyType == '공기업·공공기관') {
-      w[1] += 0.025;
-      w[2] += 0.025;
-      w[0] -= 0.05;
-    } else if (t.companyType == '스타트업') {
-      w[0] += 0.05;
-      w[1] -= 0.025;
-      w[2] -= 0.025;
+    switch (t.companyType) {
+      // 대기업: 서류 기준(학점·어학)이 있는 곳이 많아 성적·어학 +
+      case '대기업':
+        w[1] += 0.025;
+        w[2] += 0.025;
+        w[0] -= 0.05;
+      // 공기업: 블라인드라 포트폴리오는 거의 안 보고, 어학 커트라인·자격증 가산점이 중요
+      case '공기업·공공기관':
+        w[1] += 0.025;
+        w[2] += 0.025;
+        w[4] += 0.10;
+        w[0] -= 0.15;
+      // 스타트업: 결과물 위주, 자격증은 거의 안 봄
+      case '스타트업':
+        w[0] += 0.05 + w[4] / 2;
+        w[1] -= 0.025;
+        w[2] -= 0.025;
+        w[4] /= 2;
     }
     if (!hasGpa) {
       w[2] += w[1];
       w[1] = 0;
     }
-    return w;
+    return normalizeWeights(w);
+  }
+
+  /// 음수는 0 으로, 합은 1 로
+  static List<double> normalizeWeights(List<double> w) {
+    final c = [for (final x in w) x < 0 ? 0.0 : x];
+    final sum = c.fold<double>(0, (a, b) => a + b);
+    if (sum <= 0) return [for (final _ in c) 1 / c.length];
+    return [for (final x in c) x / sum];
   }
 
   static ReadinessResult evaluate({
@@ -467,7 +509,7 @@ class ReadinessService {
       _gpa(user, target, w[1]),
       _language(user, target, diagnosis, w[2]),
       _jobSkill(records, target, w[3]),
-      _teamwork(records, acceptedTeams, doneTeamIds, w[4]),
+      _certificate(user, target, w[4]),
     ];
 
     final total = areas.fold<double>(0, (sum, a) => sum + a.score * a.weight);
@@ -492,7 +534,7 @@ class ReadinessService {
   /// 항목별로 몇 개가 있어야 100점인지 (신입 합격자 수준)
   static const portfolioNeed = 5;
   static const jobSkillNeed = 3;
-  static const teamworkNeed = 3;
+  static const certificateNeed = 2;
 
   static String _text(ActivityRecord r) => '${r.title} ${r.raw} ${r.star.s} ${r.star.t} ${r.star.a} ${r.star.r}';
 
@@ -558,13 +600,23 @@ class ReadinessService {
     );
   }
 
-  // 어학: 가장 좋은 어학 성적을 토익으로 환산해 목표 대비로
+  // 어학: 가장 좋은 어학 성적을 토익으로 환산해서 "커트라인을 넘었는지" 먼저 봅니다.
+  //   커트라인 미만: 0~60점 (커트라인 대비) / 커트라인 이상: 70점 + 목표까지 남은 만큼 최대 30점
+  //   예) 공기업(커트라인 700, 목표 800)에 OPIc IM(토익 약 750) → 85점 = 충족
+  static int languageScore(int? toeic, ReadinessTarget t) {
+    if (toeic == null) return 0;
+    if (toeic < t.toeicCutoff) return (60 * toeic / t.toeicCutoff).round().clamp(0, 60);
+    final span = t.toeic - t.toeicCutoff;
+    final over = span <= 0 ? 1.0 : ((toeic - t.toeicCutoff) / span).clamp(0.0, 1.0);
+    return (70 + 30 * over).round();
+  }
+
   static AreaResult _language(AppUser user, ReadinessTarget t, DiagnosisProfile d, double weight) {
     final best = bestLanguage(user.languages);
     final toeic = best?.$2;
     return AreaResult(
       area: ReadinessArea.language,
-      score: toeic == null ? 0 : ((toeic / t.toeic).clamp(0.0, 1.0) * 100).round(),
+      score: languageScore(toeic, t),
       weight: weight,
       evidence: [
         if (best != null)
@@ -574,16 +626,17 @@ class ReadinessService {
         if (best == null)
           d.hasLanguageScore == true
               ? '진단에서 어학 성적이 있다고 했어요. 내 정보에 점수를 넣어 주세요.'
-              : '어학 성적이 없어요. (목표: 토익 ${t.toeic}점 정도)',
-        if (toeic != null && toeic < t.toeic) '어학이 목표(토익 ${t.toeic}점)보다 ${t.toeic - toeic}점 낮아요.',
+              : '어학 성적이 없어요. (보통 토익 ${t.toeicCutoff}점 정도 이상을 봐요)',
+        if (toeic != null && toeic < t.toeicCutoff) '서류 커트라인(토익 ${t.toeicCutoff}점 정도)보다 ${t.toeicCutoff - toeic}점 낮아요.',
+        if (toeic != null && toeic >= t.toeicCutoff && toeic < t.toeic) '커트라인은 넘었어요. 토익 ${t.toeic}점 정도면 더 좋아요.',
       ],
       nextAction: best == null
           ? (d.hasLanguageScore == true ? '내 정보에 어학 점수 넣기' : '토익스피킹·오픽 시험 일정 확인하기')
-          : '어학 점수 올릴 시험 일정 확인하기',
-      howScored: '가장 좋은 어학 성적을 토익 점수로 바꿔(대략값) 목표 대비로 계산 (목표: 토익 ${t.toeic})',
+          : (toeic! < t.toeicCutoff ? '커트라인 넘길 시험 일정 확인하기' : '어학은 충분해요. 다른 항목 먼저 채우기'),
+      howScored: '가장 좋은 어학 성적을 토익으로 바꿔(대략값) 커트라인(${t.toeicCutoff})을 넘으면 70점부터, 목표(${t.toeic})면 100점',
       value: toeic?.toDouble(),
       max: 990,
-      target: t.toeic.toDouble(),
+      target: t.toeicCutoff.toDouble(),
     );
   }
 
@@ -623,37 +676,37 @@ class ReadinessService {
     );
   }
 
-  // 협업 경험: 팀 활동·여럿이 한 경험 3개면 100점
-  static AreaResult _teamwork(
-    List<ActivityRecord> records,
-    List<TeamPost> acceptedTeams,
-    Set<String> doneTeamIds,
-    double weight,
-  ) {
-    final ev = <Evidence>[
-      for (final p in acceptedTeams)
-        doneTeamIds.contains(p.id)
-            ? Evidence('팀 프로젝트: ${p.title}', 1.0, '완료')
-            : Evidence('팀 프로젝트: ${p.title}', 0.4, '진행 중'),
-      for (final r in records)
-        if (_teamKeywords.any((k) => _text(r).contains(k)))
-          Evidence(r.title, evidenceWeight(r) >= 0.6 ? 0.6 : 0.3, '여럿이 한 기록'),
-    ]..sort((a, b) => b.weight.compareTo(a.weight));
-    final top = ev.take(teamworkNeed).fold<double>(0, (s, e) => s + e.weight);
-    final score = (top / teamworkNeed * 100).round().clamp(0, 100);
+  // 자격증: 목표(분야·공기업)에 맞는 자격증 2개면 100점, 다른 자격증은 1개당 15점(최대 30점)
+  static AreaResult _certificate(AppUser user, ReadinessTarget t, double weight) {
+    final words = [
+      ...?fieldCertificates[t.field],
+      if (t.companyType == '공기업·공공기관') ...publicCertificates,
+    ];
+    bool fits(Certificate c) {
+      final name = c.name.replaceAll(' ', '').toUpperCase();
+      return words.any((w) => name.contains(w.replaceAll(' ', '').toUpperCase()));
+    }
+
+    final good = [for (final c in user.certificates) if (fits(c)) c];
+    final other = [for (final c in user.certificates) if (!fits(c)) c];
+    final score = (good.length / certificateNeed * 100 + (other.length * 15).clamp(0, 30)).round().clamp(0, 100);
+    final first = firstCertificate[t.field] ?? '컴퓨터활용능력 2급';
+    final suggest = t.companyType == '공기업·공공기관' ? '$first·한국사능력검정' : first;
 
     return AreaResult(
-      area: ReadinessArea.teamwork,
+      area: ReadinessArea.certificate,
       score: score,
       weight: weight,
-      evidence: ev,
-      gaps: [
-        if (acceptedTeams.isEmpty) '한걸음 팀 프로젝트에 참여한 적이 없어요.',
-        if (ev.length < teamworkNeed) '여럿이 함께 한 경험이 ${ev.length}개예요. $teamworkNeed개가 목표예요.',
-        if (acceptedTeams.isNotEmpty && doneTeamIds.isEmpty) '진행 중인 팀 프로젝트를 끝까지 마치면 점수가 올라요.',
+      evidence: [
+        for (final c in good) Evidence(c.name, 1.0, '목표에 맞음'),
+        for (final c in other) Evidence(c.name, 0.3, '다른 자격증'),
       ],
-      nextAction: acceptedTeams.isEmpty ? '짧은 팀 프로젝트 하나 신청하기' : '진행 중인 팀 프로젝트 마치고 기록하기',
-      howScored: '팀 프로젝트(완료 1.0 · 진행 중 0.4)와 여럿이 한 기록(0.3~0.6) $teamworkNeed개까지 더해요 ÷ $teamworkNeed',
+      gaps: [
+        if (user.certificates.isEmpty) '자격증이 없어요. 내 정보에 있으면 넣어 주세요.',
+        if (good.length < certificateNeed) '목표에서 많이 보는 자격증($suggest 등)이 ${good.length}개예요.',
+      ],
+      nextAction: good.isEmpty ? '$suggest 시험 일정 확인하기' : '다음 자격증 시험 일정 확인하기',
+      howScored: '목표에 맞는 자격증 1개당 50점 ($certificateNeed개면 100점), 다른 자격증은 1개당 15점(최대 30점)',
     );
   }
 
