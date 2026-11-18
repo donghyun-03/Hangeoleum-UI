@@ -47,6 +47,11 @@ class ProgramDetailScreen extends StatelessWidget {
     final step = p.step ?? opportunity?.step;
     final scrapped = opportunity != null && state.isScrapped(programId);
     final registered = p.source == '기관';
+    // 홈 '나의 활동'에 추가할 수 있는 공고 (STEP 3·4, 마감 전)
+    final homeAddable = opportunity != null && (opportunity.step == 3 || opportunity.step == 4) && !closed;
+    final inHome = opportunity != null &&
+        state.isHomeOpportunityAdded(programId) &&
+        !state.isActivityStopped(step: opportunity.step, activityId: programId);
 
     return Scaffold(
       appBar: AppBar(
@@ -67,23 +72,28 @@ class ProgramDetailScreen extends StatelessWidget {
       bottomNavigationBar: registered
           ? null
           : BottomBar(
-              // TODO(url_launcher): 링크 열기. 패키지 추가 전까지는 복사
-              child: closed
-                  ? const AppButton(label: '모집이 마감됐어요', onPressed: null)
-                  : p.applyUrl != null
-                      ? AppButton(
-                          label: '신청하러 가기',
-                          icon: Icons.open_in_new,
-                          onPressed: () => _copyLink(context, p.applyUrl!, '신청 링크를 복사했어요. 브라우저에 붙여 넣어 열어 주세요'),
-                        )
-                      : p.linkUrl != null
-                          ? AppButton(
-                              label: '공고 원문 보기',
-                              icon: Icons.open_in_new,
-                              variant: ButtonVariant.outline,
-                              onPressed: () => _copyLink(context, p.linkUrl!, '원문 링크를 복사했어요. 신청 방법은 원문에서 확인해 주세요'),
-                            )
-                          : const AppButton(label: '아래 신청 방법을 확인해 주세요', onPressed: null),
+              child: Row(
+                children: [
+                  // STEP 3·4 공고는 홈 '나의 활동'에 추가할 수 있어요 (홈에서 완료 체크 → 기록)
+                  // 추가 버튼은 내용만큼만, 신청 버튼이 남은 폭을 다 씀
+                  if (homeAddable) ...[
+                    AppButton(
+                        label: inHome ? '추가됨' : '활동 추가',
+                        icon: inHome ? Icons.check : Icons.add,
+                        expand: false,
+                        variant: ButtonVariant.outline,
+                        onPressed: inHome
+                            ? null
+                            : () {
+                                state.addHomeOpportunity(id: programId, step: opportunity.step);
+                                showToast(context, '홈 나의 활동에 추가했어요');
+                              },
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  Expanded(child: _applyButton(context, p, closed)),
+                ],
+              ),
             ),
       body: ListView(
         padding: const EdgeInsets.all(20),
@@ -538,3 +548,25 @@ String? _incomeLabel(ProgramDetail p) {
 String _comma(int n) => n.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => ',');
 
 String _minutes(int m) => m < 60 ? '$m분' : (m % 60 == 0 ? '${m ~/ 60}시간' : '${m ~/ 60}시간 ${m % 60}분');
+
+/// 하단 신청 버튼 (마감 · 신청 링크 · 원문 링크 · 안내 중 하나)
+/// TODO(url_launcher): 링크 열기. 패키지 추가 전까지는 복사
+Widget _applyButton(BuildContext context, ProgramDetail p, bool closed) {
+  if (closed) return const AppButton(label: '모집이 마감됐어요', onPressed: null);
+  if (p.applyUrl != null) {
+    return AppButton(
+      label: '신청하러 가기',
+      icon: Icons.open_in_new,
+      onPressed: () => _copyLink(context, p.applyUrl!, '신청 링크를 복사했어요. 브라우저에 붙여 넣어 열어 주세요'),
+    );
+  }
+  if (p.linkUrl != null) {
+    return AppButton(
+      label: '공고 원문 보기',
+      icon: Icons.open_in_new,
+      variant: ButtonVariant.outline,
+      onPressed: () => _copyLink(context, p.linkUrl!, '원문 링크를 복사했어요. 신청 방법은 원문에서 확인해 주세요'),
+    );
+  }
+  return const AppButton(label: '아래 신청 방법을 확인해 주세요', onPressed: null);
+}

@@ -719,6 +719,10 @@ class ReadinessService {
   static bool isUniversity(String education) =>
       education.contains('대학') || education.contains('대졸') || education.contains('석·박사');
 
+  /// 고교 재학·고졸 예정·고교 졸업 → 학점 대신 내신 등급을 받습니다. (고졸 미만은 제외)
+  static bool isHighSchool(String education) =>
+      !isUniversity(education) && (education.contains('고교') || education.contains('고졸')) && !education.contains('미만');
+
   /// 가장 좋은 어학 성적과 토익 환산 점수 (대략값)
   static (LanguageScore, int)? bestLanguage(List<LanguageScore> list) {
     (LanguageScore, int)? best;

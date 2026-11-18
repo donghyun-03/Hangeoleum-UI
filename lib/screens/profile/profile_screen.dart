@@ -1,9 +1,12 @@
 // 내 정보 — 보기 화면 (팀원 프로필과 같은 구성). 연필 버튼으로 내 정보 수정 화면 이동
+// 홈 시작 가이드에서 [focus] 를 넘겨 열면 그 칸으로 내려가서 바로 입력을 시작해요.
+//   성적 → 학점(고교 재학·고졸이면 내신 등급) 칸에 커서 / 어학 → 어학 추가 창 / 자격증 → 자격증 추가 창
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../router/routes.dart';
+import '../../services/readiness_service.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
@@ -29,14 +32,61 @@ class _GpaFormatter extends TextInputFormatter {
   }
 }
 
+/// 내 정보를 열면서 바로 입력을 시작할 칸
+enum ProfileFocus { grades, language, certificate }
+
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  const ProfileScreen({super.key, this.focus});
+
+  /// 시작 가이드에서 넘김. null 이면 그냥 열기
+  final ProfileFocus? focus;
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  final _gradesKey = GlobalKey();
+  final _languageKey = GlobalKey();
+  final _certificateKey = GlobalKey();
+  final _gradeFocus = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    final focus = widget.focus;
+    if (focus != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _openFocus(focus));
+    }
+  }
+
+  @override
+  void dispose() {
+    _gradeFocus.dispose();
+    super.dispose();
+  }
+
+  /// 해당 칸으로 내려간 뒤, 추가 버튼을 누른 것처럼 입력 창을 엽니다.
+  Future<void> _openFocus(ProfileFocus focus) async {
+    final key = switch (focus) {
+      ProfileFocus.grades => _gradesKey,
+      ProfileFocus.language => _languageKey,
+      ProfileFocus.certificate => _certificateKey,
+    };
+    final target = key.currentContext;
+    if (target != null) {
+      await Scrollable.ensureVisible(target, duration: const Duration(milliseconds: 300), alignment: 0.2);
+    }
+    if (!mounted) return;
+    switch (focus) {
+      case ProfileFocus.grades:
+        _gradeFocus.requestFocus();
+      case ProfileFocus.language:
+        await _addLanguage();
+      case ProfileFocus.certificate:
+        await _addCertificate();
+    }
+  }
   Future<void> _editIntro(String current) async {
     final ctrl = TextEditingController(text: current);
     final result = await showDialog<String>(
@@ -342,13 +392,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ],
             ),
           ),
-          const SectionTitle('성적'),
+          // 고교 재학·고졸이면 학점 대신 내신 등급 (학력은 내 정보 수정에서 바꿈)
+          if (ReadinessService.isHighSchool(u.education)) ...[
+            SectionTitle('성적', key: _gradesKey, aside: '고교 내신'),
+            Row(
+              children: [
+                SizedBox(
+                  width: 72,
+                  child: TextFormField(
+                    focusNode: _gradeFocus,
+                    initialValue: u.schoolGrade == null ? '' : '${u.schoolGrade}',
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    inputFormatters: [_GpaFormatter(9)],
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 14),
+                    decoration: const InputDecoration(
+                      hintText: '평균',
+                      contentPadding: EdgeInsets.symmetric(horizontal: 2, vertical: 9),
+                    ),
+                    onChanged: (v) {
+                      final g = double.tryParse(v);
+                      context.read<AppState>().updateUser(
+                        (x) => x.copyWith(schoolGrade: g != null && g >= 1 ? g : null),
+                      );
+                    },
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Text('등급', style: AppText.body),
+                ),
+                Flexible(child: Text('(1~9등급, 전 과목 평균)', style: AppText.caption)),
+              ],
+            ),
+          ] else ...[
+          SectionTitle('성적', key: _gradesKey),
           Row(
             children: [
               SizedBox(
                 width: 72,
                 child: TextFormField(
                   key: ValueKey(u.gpaScale),
+                  focusNode: _gradeFocus,
                   initialValue: u.gpa == null ? '' : '${u.gpa}',
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
@@ -376,10 +461,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 builder: (fieldContext) => InkWell(
                   borderRadius: BorderRadius.circular(AppRadius.md),
                   onTap: () => _pickScale(fieldContext),
-                  child: SizedBox(
-                    width: 44,
-                    height: 32,
+                  // 폭을 고정하지 않고 글자만큼 (고정 44px 이면 큰 글꼴에서 넘침)
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(minWidth: 44, minHeight: 32),
                     child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
@@ -398,7 +484,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ],
           ),
-          const SectionTitle('어학'),
+          ],
+          SectionTitle('어학', key: _languageKey),
           ChipWrap(
             children: [
               for (var i = 0; i < u.languages.length; i++)
@@ -429,7 +516,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ],
           ),
-          const SectionTitle('자격증'),
+          SectionTitle('자격증', key: _certificateKey),
           ChipWrap(
             children: [
               for (var i = 0; i < u.certificates.length; i++)

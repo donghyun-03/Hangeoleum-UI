@@ -80,7 +80,15 @@ class AppButton extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         if (icon != null) ...[Icon(icon, size: small ? 15 : 18, color: fg), const SizedBox(width: 6)],
-        Text(label, style: TextStyle(fontSize: small ? 12.5 : 15, fontWeight: FontWeight.w700, color: fg)),
+        // 폭이 좁으면 잘리지 않고 … 으로 줄여요 (버튼 두 개를 나란히 둘 때)
+        Flexible(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: small ? 12.5 : 15, fontWeight: FontWeight.w700, color: fg),
+          ),
+        ),
       ],
     );
     final button = TextButton(

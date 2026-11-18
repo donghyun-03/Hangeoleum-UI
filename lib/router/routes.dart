@@ -46,7 +46,7 @@ class Routes {
 
   // 활동 기록
   static const recordList = '/record';
-  static const recordWrite = '/record/write'; // 인자: String? missionId
+  static const recordWrite = '/record/write'; // 인자: String? missionId 또는 RecordWriteArgs (홈에서 활동 완료 후 기록)
   static const recordResult = '/record/result'; // 인자: ActivityRecord (AI 정리 초안)
 
 
@@ -80,7 +80,9 @@ Route<dynamic> onGenerateRoute(RouteSettings settings) {
     Routes.diagnosisEdit => const DiagnosisEditScreen(),
     Routes.main => const MainShell(),
     Routes.recordList => const RecordListScreen(),
-    Routes.recordWrite => RecordWriteScreen(missionId: args as String?),
+    Routes.recordWrite => args is RecordWriteArgs
+        ? RecordWriteScreen(missionId: args.missionId, initialTitle: args.title, step: args.step)
+        : RecordWriteScreen(missionId: args as String?),
     Routes.recordResult => RecordResultScreen(draft: args as ActivityRecord),
     Routes.memberProfile => MemberProfileScreen(memberId: args as String),
     Routes.memberActivity => switch (args) {
@@ -93,7 +95,7 @@ Route<dynamic> onGenerateRoute(RouteSettings settings) {
     Routes.programDetail => ProgramDetailScreen(programId: args as String),
     Routes.programRegister => const ProgramRegisterScreen(),
     Routes.notifications => const NotificationScreen(),
-    Routes.profile => const ProfileScreen(),
+    Routes.profile => ProfileScreen(focus: args as ProfileFocus?),
     Routes.allServices => const AllScreen(),
     Routes.comingSoon => ComingSoonScreen(title: (args as String?) ?? '준비 중'),
     _ => ComingSoonScreen(title: settings.name ?? '알 수 없는 화면'),
@@ -105,8 +107,19 @@ Route<dynamic> onGenerateRoute(RouteSettings settings) {
 class AppNav {
   AppNav._();
 
-  static Future<void> toRecordWrite(BuildContext context, {String? missionId}) =>
-      Navigator.pushNamed(context, Routes.recordWrite, arguments: missionId);
+  /// [title] 을 주면 제목 칸에 미리 채워요. (홈에서 활동을 완료하고 바로 기록할 때)
+  static Future<void> toRecordWrite(BuildContext context, {String? missionId, String? title, int? step}) =>
+      Navigator.pushNamed(
+        context,
+        Routes.recordWrite,
+        arguments: title == null && step == null
+            ? missionId
+            : RecordWriteArgs(missionId: missionId, title: title, step: step),
+      );
+
+  /// 내 정보. [focus] 를 주면 그 칸(성적·어학·자격증)으로 내려가서 바로 입력을 시작해요.
+  static Future<void> toProfile(BuildContext context, {ProfileFocus? focus}) =>
+      Navigator.pushNamed(context, Routes.profile, arguments: focus);
 
   static Future<void> toRecordResult(BuildContext context, ActivityRecord draft) =>
       Navigator.pushNamed(context, Routes.recordResult, arguments: draft);

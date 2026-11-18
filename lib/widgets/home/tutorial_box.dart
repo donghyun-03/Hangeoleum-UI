@@ -1,17 +1,17 @@
 // 홈 튜토리얼 박스: 좌우로 넘기며 학점·어학·첫 기록·진단을 채우게 도와줍니다.
 // 이미 채운 단계는 저절로 사라지고, 단계마다 "건너뛰기", 박스 전체는 X 로 닫을 수 있어요. (사람마다 저장)
+// 성적·어학·자격증은 아래에 창을 띄우지 않고 내 정보로 가서, 각 칸의 추가 버튼을 누른 것처럼 바로 입력 창을 열어요.
+// 고교 재학·고졸이면 학점 대신 내신 등급을 넣어요.
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
-import '../../models/models.dart';
 import '../../router/routes.dart';
+import '../../screens/profile/profile_screen.dart';
 import '../../services/readiness_service.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../common.dart';
-import 'certificate_dialog.dart';
 
 class _Step {
   const _Step(this.id, this.title, this.body, this.action, this.onAction);
@@ -38,18 +38,24 @@ List<_Step> _stepsFor(AppState state) {
         AppNav.toRecordWrite(c);
       }),
     if (ReadinessService.isUniversity(u.education) && u.gpa == null)
-      _Step('gpa', '학점 넣기', '대학을 다녔다면 학점이 "성적" 항목에 들어가요. 전체 평균 학점 하나면 돼요.', '학점 입력', _askGpa),
+      _Step('gpa', '학점 넣기', '대학을 다녔다면 학점이 "성적" 항목에 들어가요. 전체 평균 학점 하나면 돼요.', '학점 입력',
+          (c) => AppNav.toProfile(c, focus: ProfileFocus.grades)),
+    // 고교 재학·고졸이면 학점 대신 내신 등급 (건너뛰기는 학점과 같이 'gpa' 로 저장)
+    if (ReadinessService.isHighSchool(u.education) && u.schoolGrade == null)
+      _Step('gpa', '내신 등급 넣기', '고등학교 내신 평균 등급(1~9등급)을 넣어 주세요. 고졸 채용에서 성적으로 봐요.', '내신 입력',
+          (c) => AppNav.toProfile(c, focus: ProfileFocus.grades)),
     // 분야·기업·직무를 모른다고 했으면: 끌리는 것 아무거나 몇 개 → AI 가 방향 추천
     if (state.needsDirection && state.likes.isEmpty)
       _Step('likes', '끌리는 것 적기', '좋아하는 거, 요즘 조금이라도 재밌던 거 아무거나 몇 개만 알려 주세요. AI가 나에게 맞는 분야·직무를 찾아 줄게요.',
           '적어 보기', _askLikes),
     // 진단에서 어학 성적이 "있다"고 한 사람에게만
     if (u.languages.isEmpty && d.hasLanguageScore == true)
-      _Step('language', '어학 성적 넣기', '진단에서 어학 성적이 있다고 했어요. 가장 최근 점수 하나만 넣어 주세요.', '어학 입력', _askLanguage),
+      _Step('language', '어학 성적 넣기', '진단에서 어학 성적이 있다고 했어요. 가장 최근 점수 하나만 넣어 주세요.', '어학 입력',
+          (c) => AppNav.toProfile(c, focus: ProfileFocus.language)),
     // 목표 회사·직무가 자격증을 보는 곳(자격증 비중 10% 넘음)이고 아직 하나도 안 넣었으면
     if (u.certificates.isEmpty && state.readiness.area(ReadinessArea.certificate).weight > 0.1)
       _Step('certificate', '자격증 넣기', '${state.readiness.target.label} 기준에서는 자격증도 봐요. 이미 딴 자격증이 있으면 넣어 주세요. 없으면 건너뛰어도 돼요.',
-          '자격증 입력', _askCertificate),
+          '자격증 입력', (c) => AppNav.toProfile(c, focus: ProfileFocus.certificate)),
     if (state.records.isEmpty && d.hasPortfolio != true)
       _Step('record', '첫 활동 기록 남기기', '해 본 일을 편하게 적으면 AI가 정리해 줘요. 기록이 쌓일수록 준비도가 정확해져요.', '기록 쓰기',
           (c) => AppNav.toRecordWrite(c)),
@@ -176,109 +182,7 @@ class _StepPage extends StatelessWidget {
   }
 }
 
-Future<void> _askGpa(BuildContext context) async {
-  final state = context.read<AppState>();
-  final ctrl = TextEditingController();
-  var scale = state.user.gpaScale;
-  final saved = await showModalBottomSheet<bool>(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: AppColors.paper,
-    builder: (sheet) => StatefulBuilder(
-      builder: (sheet, setLocal) => Padding(
-        padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + MediaQuery.of(sheet).viewInsets.bottom),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text('학점 입력', style: AppText.bodyBold),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                SizedBox(
-                  width: 90,
-                  child: TextField(
-                    controller: ctrl,
-                    autofocus: true,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
-                    decoration: const InputDecoration(hintText: '예: 3.6'),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Text('/', style: AppText.body),
-                const SizedBox(width: 10),
-                for (final s in const [4.5, 4.3, 4.0]) ...[
-                  SelectChip(label: '$s', selected: scale == s, onTap: () => setLocal(() => scale = s)),
-                  const SizedBox(width: 6),
-                ],
-              ],
-            ),
-            const SizedBox(height: 16),
-            AppButton(
-              label: '저장',
-              onPressed: () {
-                final g = double.tryParse(ctrl.text);
-                if (g == null || g <= 0 || g > scale) return;
-                Navigator.pop(sheet, true);
-              },
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
-  final g = double.tryParse(ctrl.text);
-  ctrl.dispose();
-  if (saved == true && g != null) {
-    state.updateUser((u) => u.copyWith(gpa: g, gpaScale: scale));
-  }
-}
 
-Future<void> _askLanguage(BuildContext context) async {
-  final state = context.read<AppState>();
-  final ctrl = TextEditingController();
-  var exam = 'TOEIC';
-  final saved = await showModalBottomSheet<bool>(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: AppColors.paper,
-    builder: (sheet) => StatefulBuilder(
-      builder: (sheet, setLocal) => Padding(
-        padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + MediaQuery.of(sheet).viewInsets.bottom),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text('어학 입력', style: AppText.bodyBold),
-            const SizedBox(height: 12),
-            ChipWrap(
-              children: [
-                for (final e in const ['TOEIC', 'TOEIC Speaking', 'OPIc', 'TOEFL', '기타'])
-                  SelectChip(label: e, selected: exam == e, onTap: () => setLocal(() => exam = e)),
-              ],
-            ),
-            const SizedBox(height: 12),
-            TextField(controller: ctrl, decoration: const InputDecoration(hintText: '점수 · 등급 (예: 850, IH, Lv6)')),
-            const SizedBox(height: 16),
-            AppButton(
-              label: '저장',
-              onPressed: () {
-                if (ctrl.text.trim().isEmpty) return;
-                Navigator.pop(sheet, true);
-              },
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
-  final score = ctrl.text.trim();
-  ctrl.dispose();
-  if (saved == true && score.isNotEmpty) {
-    state.updateUser((u) => u.copyWith(languages: [...u.languages, LanguageScore(exam: exam, score: score)]));
-  }
-}
 
 const _likeExamples = ['게임', '요리', '사진', '영상 보기', '글쓰기', '그림', '운동', '음악', '정리하기', '사람 돕기', '숫자·계산', '만들기', '여행', '동물', '패션', 'SNS'];
 
@@ -349,11 +253,4 @@ Future<void> _askLikes(BuildContext context) async {
   );
   ctrl.dispose();
   if (saved == true && picked.isNotEmpty) state.setLikes(picked.toList());
-}
-
-Future<void> _askCertificate(BuildContext context) async {
-  final state = context.read<AppState>();
-  final c = await showCertificateDialog(context);
-  if (c == null) return;
-  state.updateUser((u) => u.copyWith(certificates: [...u.certificates, c]));
 }

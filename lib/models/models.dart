@@ -53,6 +53,9 @@ class AppUser {
   final String intro;
   final double? gpa;
   final double gpaScale;
+
+  /// 고교 내신 평균 등급 (1~9, 고졸·고교 재학이면 학점 대신 입력)
+  final double? schoolGrade;
   final List<LanguageScore> languages;
   final List<Certificate> certificates;
 
@@ -75,6 +78,7 @@ class AppUser {
     this.intro = '',
     this.gpa,
     this.gpaScale = 4.5,
+    this.schoolGrade,
     this.languages = const [],
     this.certificates = const [],
   });
@@ -97,6 +101,7 @@ class AppUser {
     String? intro,
     double? gpa,
     double? gpaScale,
+    double? schoolGrade,
     List<LanguageScore>? languages,
     List<Certificate>? certificates,
   }) {
@@ -119,6 +124,7 @@ class AppUser {
       intro: intro ?? this.intro,
       gpa: gpa ?? this.gpa,
       gpaScale: gpaScale ?? this.gpaScale,
+      schoolGrade: schoolGrade ?? this.schoolGrade,
       languages: languages ?? this.languages,
       certificates: certificates ?? this.certificates,
     );

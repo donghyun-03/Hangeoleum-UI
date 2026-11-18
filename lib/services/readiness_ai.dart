@@ -58,7 +58,7 @@ class ReadinessInput {
         'd': diagnosis.answers,
         'e': user.education,
         'm': user.major,
-        'g': [user.gpa, user.gpaScale],
+        'g': [user.gpa, user.gpaScale, user.schoolGrade],
         'l': [for (final l in user.languages) '${l.exam}:${l.score}'],
         'c': [for (final c in user.certificates) c.name],
         'r': [for (final r in records) '${r.id}:${r.title}:${r.star.r}:${r.attachments.length}'],
@@ -145,7 +145,7 @@ ${BazeRecommendJudge.rules}
 
 [사용자 정보]
 - 학력: ${u.education} / 전공: ${u.major}
-- 학점: ${u.gpa == null ? '미입력' : '${u.gpa} / ${u.gpaScale}'}
+- 학점: ${u.gpa == null ? '미입력' : '${u.gpa} / ${u.gpaScale}'}${ReadinessService.isHighSchool(u.education) ? '\n- 고교 내신 평균: ${u.schoolGrade == null ? '미입력' : '${u.schoolGrade}등급 (1~9등급, 낮을수록 좋음)'}' : ''}
 - 어학: ${u.languages.isEmpty ? '없음' : u.languages.map((l) => '${l.exam} ${l.score}').join(', ')}${lang == null ? '' : ' (가장 좋은 성적 토익 환산 약 ${lang.$2}점)'}
 - 자격증: ${u.certificates.isEmpty ? '없음' : u.certificates.map((c) => c.name).join(', ')}
 - 지금 단계: ${userStageLabel[rule.stage]}

@@ -39,10 +39,9 @@ class _RecordEditScreenState extends State<RecordEditScreen> {
         _ => _star.copyWith(r: v),
       };
 
-  /// 지금 제목 · STAR 를 한 글로 모아 기록 작성 화면으로 → AI 정리 → 저장하면 이 기록이 바뀜
+  /// 제목은 제목 칸에, STAR 는 한 글로 모아 내용 칸에 넣고 기록 작성 화면으로 → AI 정리 → 저장하면 이 기록이 바뀜
   void _rewrite() {
     final text = [
-      _title.text.trim(),
       '상황: ${_star.s}',
       '목표: ${_star.t}',
       '행동: ${_star.a}',
@@ -50,7 +49,7 @@ class _RecordEditScreenState extends State<RecordEditScreen> {
     ].join('\n');
     Navigator.push(
       context,
-      MaterialPageRoute<void>(builder: (_) => RecordWriteScreen(editing: widget.record, initialText: text)),
+      MaterialPageRoute<void>(builder: (_) => RecordWriteScreen(editing: widget.record, initialTitle: _title.text.trim(), initialText: text)),
     );
   }
 
