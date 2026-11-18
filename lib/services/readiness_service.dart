@@ -301,7 +301,11 @@ class ReadinessResult {
     this.summary,
     this.direction,
     this.judgedAt,
+    this.picks = const [],
   });
+
+  /// AI 가 같은 호출에서 함께 고른 홈 추천 활동 (후보 id, 이유). 저장하지 않습니다. (AppState.refreshReadiness)
+  final List<({String id, String reason})> picks;
 
   /// 종합 준비도 0~100
   final int score;

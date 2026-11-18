@@ -37,6 +37,29 @@ class _FakeJudge implements ReadinessJudge {
   }
 }
 
+/// 준비도 판단 때 후보 중 첫 번째를 같이 고르는 가짜 판단기
+class _PickingJudge implements ReadinessJudge {
+  @override
+  Future<ReadinessResult> judge(ReadinessInput input) async => BazeReadinessJudge.parse({
+        'score': 5,
+        'areas': [
+          {'key': 'portfolio', 'score': 5},
+        ],
+        'picks': [
+          {'id': input.candidates.first.id, 'reason': '같이 고른 이유'},
+        ],
+      }, input.ruleResult());
+}
+
+class _CountingRecommendJudge implements RecommendJudge {
+  int calls = 0;
+  @override
+  Future<List<HomeRecommendation>> pick(RecommendInput input) async {
+    calls++;
+    return input.candidates.take(1).toList();
+  }
+}
+
 void main() {
   test('비중은 5개 합이 1, 대학을 안 다니면 성적 비중은 어학으로', () {
     for (final field in ['IT·데이터', '디자인·영상', '사무·행정', null]) {
@@ -272,6 +295,30 @@ void main() {
     expect(state.needsDirection, isTrue);
   });
 
+  test('시작 가이드를 닫았어도 진단에서 포트폴리오를 "있음"으로 바꾸면 다시 연다', () {
+    final state = AppState()..loginAs(UserRole.youth);
+    state.updateDiagnosisAnswer('readiness_assets', '아직 둘 다 없어요');
+    state.skipTutorialStep('portfolio');
+    state.closeTutorial();
+    expect(state.tutorialClosed, isTrue);
+    state.updateDiagnosisAnswer('readiness_assets', '포트폴리오와 어학 성적 모두 있어요');
+    expect(state.tutorialClosed, isFalse);
+    expect(state.isTutorialSkipped('portfolio'), isFalse);
+  });
+
+  test('준비도와 홈 추천 활동을 AI 한 번에 같이 받는다 (추천을 따로 안 부름)', () async {
+    final recJudge = _CountingRecommendJudge();
+    final state = AppState()
+      ..readinessJudge = _PickingJudge()
+      ..recommendJudge = recJudge
+      ..loginAs(UserRole.youth);
+    await state.refreshReadiness();
+    await state.refreshRecommendations();
+    expect(state.recommendationsFromAi, isTrue);
+    expect(state.homeRecommendations.first.reason, '같이 고른 이유');
+    expect(recJudge.calls, 0);
+  });
+
   test('하루 상태 → 단계, 답을 바꾸면 안 묻는 질문은 지우고 적어 둔 직무는 살린다', () {
     expect(stageOf(const DiagnosisProfile({'current_status': '일상 리듬이 무너져 대부분 집에서 보내고 있어요.'})), UserStage.rhythm);
     final changed = mockDiagnosis.withAnswer('company_preference', '아직 고민 중이에요');
@@ -322,19 +369,16 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('시작 가이드'), findsOneWidget);
+    // 진단에서 "포트폴리오만 있어요" → 첫 카드가 포트폴리오 (기록이 이미 있어도)
+    expect(find.text('포트폴리오를 넣어 주세요!'), findsOneWidget);
+    await tester.drag(find.text('포트폴리오를 넣어 주세요!'), const Offset(-350, 0));
+    await tester.pumpAndSettle();
     expect(find.text('학점 넣기'), findsOneWidget);
     await tester.drag(find.text('학점 넣기'), const Offset(-350, 0));
     await tester.pumpAndSettle();
-    // 진단에서 어학 성적이 없다고 했으면 어학 카드는 안 나온다
+    // 진단에서 어학 성적이 없다고 했으면 어학 카드는 안 나오고, IT 대기업 기준은 자격증도 봐서 자격증 카드
     expect(find.text('어학 성적 넣기'), findsNothing);
-    // IT 대기업 기준은 자격증도 조금 봐서 자격증 카드가 나온다
     expect(find.text('자격증 넣기'), findsOneWidget);
-    await tester.drag(find.text('자격증 넣기'), const Offset(-350, 0));
-    await tester.pumpAndSettle();
-    // 진단에서 "포트폴리오만 있어요" → 기록이 이미 있어도 포트폴리오 적기 카드가 나온다
-    expect(find.text('포트폴리오 적기'), findsOneWidget);
-    await tester.drag(find.text('포트폴리오 적기'), const Offset(350, 0));
-    await tester.pumpAndSettle();
     await tester.drag(find.text('자격증 넣기'), const Offset(350, 0));
     await tester.pumpAndSettle();
     expect(find.text('학점 넣기'), findsOneWidget);

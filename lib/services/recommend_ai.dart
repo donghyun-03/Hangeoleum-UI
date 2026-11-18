@@ -43,7 +43,10 @@ class BazeRecommendJudge implements RecommendJudge {
   static const maxPicks = 3;
 
   static const system = '''너는 쉬었음 청년에게 지금 할 활동을 골라 주는 코치야.
-후보 목록 안에서만 최대 3개를 골라. 후보에 없는 id 를 만들지 마.
+$rules''';
+
+  /// 고르는 기준 (준비도 판단과 한 번에 물어볼 때도 같이 씁니다: readiness_ai.dart)
+  static const rules = '''후보 목록 안에서만 최대 3개를 골라. 후보에 없는 id 를 만들지 마.
 고르는 기준:
 - 지금 단계가 "생활 리듬 되찾는 중"이면 짧은 생활 미션만. 프로젝트·공모전·채용 공고는 절대 고르지 마.
 - "사람들과 연결되는 중"이면 모임 미션·팀 프로젝트 위주.
@@ -56,9 +59,7 @@ reason: 왜 이 사람에게 지금 이게 좋은지 30자 이내 한 문장, "~
   static String userPrompt(RecommendInput i) {
     final r = i.readiness;
     final areas = [for (final a in r.shownAreas) '${a.label} ${a.score}점(${areaStatusLabel[a.status]})'].join(', ');
-    final list = [
-      for (final c in i.candidates) '- id=${c.id} | ${_typeLabel(c)} | ${c.title} | ${c.detail}',
-    ];
+    final list = candidateLines(i.candidates);
     return '''${i.diagnosis.toPromptContext()}
 
 [지금 상태]
@@ -73,6 +74,10 @@ ${list.join('\n')}
 
 JSON 으로 답해: {"picks":[{"id":"","reason":""}]}''';
   }
+
+  static List<String> candidateLines(List<HomeRecommendation> candidates) => [
+        for (final c in candidates) '- id=${c.id} | ${_typeLabel(c)} | ${c.title} | ${c.detail}',
+      ];
 
   static String _typeLabel(HomeRecommendation c) => switch (c.type) {
         HomeRecommendationType.mission => '미션',

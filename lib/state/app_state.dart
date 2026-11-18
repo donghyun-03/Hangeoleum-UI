@@ -443,7 +443,9 @@ class AppState extends ChangeNotifier {
   DiagnosisProfile get diagnosis => _diagnosis;
 
   void saveDiagnosis(DiagnosisProfile p) {
+    final old = effectiveDiagnosis;
     _diagnosis = p;
+    _reopenTutorialIfNeeded(old, p, all: true);
     _saveProfile();
     notifyListeners();
   }
@@ -514,8 +516,22 @@ class AppState extends ChangeNotifier {
     _readinessError = null;
     notifyListeners();
     try {
-      _aiReadiness = await judge.judge(input);
+      // 준비도와 홈 추천 활동을 한 번에 물어봅니다. (2번 부르면 느려서)
+      final candidates = recommendJudge == null ? const <HomeRecommendation>[] : allHomeCandidates(this);
+      final result = await judge.judge(input.withCandidates(candidates));
+      _aiReadiness = result;
       _aiSignature = sig;
+      if (result.picks.isNotEmpty) {
+        final rec = _recommendInput; // 새 준비도로 다시 만든 재료
+        try {
+          _aiRecs = BazeRecommendJudge.parse({
+            'picks': [for (final p in result.picks) {'id': p.id, 'reason': p.reason}],
+          }, rec.candidates);
+          _aiRecsSignature = rec.signature;
+        } catch (_) {
+          // 고른 게 후보에 없으면 아래 refreshRecommendations 가 따로 물어봅니다.
+        }
+      }
       _saveProfile();
     } catch (e) {
       _readinessError = '$e';
@@ -636,7 +652,9 @@ class AppState extends ChangeNotifier {
 
   /// 진단 답 하나 바꾸기 (내 기준 바꾸기). 관심 분야는 사용자 정보에도 반영합니다.
   void updateDiagnosisAnswer(String slotKey, String value) {
-    _diagnosis = effectiveDiagnosis.withAnswer(slotKey, value);
+    final old = effectiveDiagnosis;
+    _diagnosis = old.withAnswer(slotKey, value);
+    _reopenTutorialIfNeeded(old, _diagnosis);
     if (slotKey == 'interest') {
       _user = _user.copyWith(interests: _diagnosis.interests);
     }
@@ -665,6 +683,19 @@ class AppState extends ChangeNotifier {
   }
 
   // ───────────────────────── 홈 튜토리얼 박스
+  /// 진단 답이 바뀌어서 새로 해야 할 일이 생기면(예: 포트폴리오 "있음"으로 바꿈) 닫았던 시작 가이드를 다시 엽니다.
+  /// [all] 이면(진단을 처음부터 다시 함) 진단에 따라 나오는 카드를 모두 다시 보여 줍니다.
+  void _reopenTutorialIfNeeded(DiagnosisProfile old, DiagnosisProfile now, {bool all = false}) {
+    final again = <String>{
+      if (all) ...['portfolio', 'language', 'likes', 'certificate', 'record'],
+      if (now.hasPortfolio == true && old.hasPortfolio != true) 'portfolio',
+      if (now.hasLanguageScore == true && old.hasLanguageScore != true) 'language',
+    };
+    if (again.isEmpty) return;
+    _tutorialSkipped.removeAll(again);
+    _tutorialClosed = false;
+  }
+
   bool _tutorialClosed = false;
   final Set<String> _tutorialSkipped = {};
 

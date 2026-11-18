@@ -2,7 +2,8 @@
 // 키는 실행할 때만 넣어요: flutter run --dart-define=LLM_KEY=BAZE키 --dart-define=LLM_MODEL=모델이름
 // 키가 없거나 AI가 실패하면 규칙 계산(readiness_service.dart) 결과를 그대로 씁니다.
 //
-// 비용: 한 번 판단에 BAZE 1회 호출. 진단 답·학점·어학·자격증·기록·팀이 바뀌었을 때만 다시 물어봅니다. (AppState.refreshReadiness)
+// 비용: 한 번 판단에 BAZE 1회 호출. 홈 추천 활동도 같은 호출에서 함께 고릅니다(예전엔 2번 → 1번, 2026-11-18 주아: 느려서).
+// 진단 답·학점·어학·자격증·기록·팀이 바뀌었을 때만 다시 물어봅니다. (AppState.refreshReadiness)
 
 import 'dart:convert';
 
@@ -10,6 +11,7 @@ import '../models/diagnosis_profile.dart';
 import '../models/models.dart';
 import 'llm_client.dart';
 import 'readiness_service.dart';
+import 'recommend_ai.dart';
 
 /// AI 에게 넘기는 재료
 class ReadinessInput {
@@ -21,7 +23,23 @@ class ReadinessInput {
     required this.doneTeamIds,
     this.likes = const [],
     this.needsDirection = false,
+    this.candidates = const [],
   });
+
+  /// 홈 추천 활동 후보(STEP 1~4). 있으면 같은 호출에서 AI 가 최대 3개를 같이 고릅니다.
+  /// signature 에는 넣지 않습니다. (후보 목록은 준비도 결과로 만들어져서 넣으면 서로 물고 돕니다)
+  final List<HomeRecommendation> candidates;
+
+  ReadinessInput withCandidates(List<HomeRecommendation> c) => ReadinessInput(
+        user: user,
+        diagnosis: diagnosis,
+        records: records,
+        acceptedTeams: acceptedTeams,
+        doneTeamIds: doneTeamIds,
+        likes: likes,
+        needsDirection: needsDirection,
+        candidates: c,
+      );
 
   /// 분야·기업·직무를 정말 모르는 사람인지 (AppState.needsDirection). true 일 때만 방향 추천을 받습니다.
   final bool needsDirection;
@@ -99,12 +117,16 @@ direction: [방향 추천 필요] 가 "예"일 때만 채워. "아니오"면 nul
 - jobs: 처음 해 보기 좋은 구체적인 직무 3개. why 는 그 사람 정보와 연결해 한 문장.
 - company_types: 시작하기 좋은 기업 유형 1~2개 (스타트업 / 중소기업 / 중견기업 / 대기업 / 공기업·공공기관 중에서), why 한 문장.
 - message: 부담 없이 "한 달만 해 봐요" 하고 격려하는 두 문장. 의욕이 낮아 보이면(생활 리듬 단계·하루 10분) 더 작게 시작하자고 해.
+
+picks: [추천 후보] 가 있으면 그중에서 지금 이 사람에게 맞는 활동을 골라. 없으면 [].
+${BazeRecommendJudge.rules}
 말투는 "~해요" 체.''';
 
   static const _shape = '''{"score":0,"summary":"",
 "areas":[{"key":"portfolio","score":0,"weight":25,"applicable":true,"gaps":[""],"evidence":[""],"next_action":""}],
 "fill":{"key":"portfolio","title":"","reason":""},
-"direction":{"message":"","fields":[""],"jobs":[{"name":"","why":""}],"company_types":[{"name":"","why":""}]}}''';
+"direction":{"message":"","fields":[""],"jobs":[{"name":"","why":""}],"company_types":[{"name":"","why":""}]},
+"picks":[{"id":"","reason":""}]}''';
 
   static String userPrompt(ReadinessInput i, ReadinessResult rule) {
     final u = i.user;
@@ -143,6 +165,9 @@ ${records.isEmpty ? '- 없음' : records.join('\n')}
 ${teams.isEmpty ? '- 없음' : teams.join('\n')}
 
 [규칙으로 계산한 참고 점수] 준비도 ${rule.score}, ${[for (final a in rule.areas) '${readinessAreaKey[a.area]} ${a.score}'].join(', ')}
+
+[추천 후보 ${i.candidates.length}개]
+${i.candidates.isEmpty ? '- 없음' : BazeRecommendJudge.candidateLines(i.candidates).join('\n')}
 
 아래 모양의 JSON 으로 답해. areas 는 5개 key 를 모두 넣어.
 $_shape''';
@@ -219,6 +244,10 @@ $_shape''';
       summary: text(json['summary']),
       direction: json['direction'] is Map ? Direction.fromJson(Map<String, dynamic>.from(json['direction'] as Map)) : null,
       judgedAt: DateTime.now(),
+      picks: [
+        for (final p in (json['picks'] as List? ?? const []))
+          if (p is Map && '${p['id'] ?? ''}'.trim().isNotEmpty) (id: '${p['id']}'.trim(), reason: '${p['reason'] ?? ''}'.trim()),
+      ],
     );
   }
 }
