@@ -8,6 +8,7 @@ import '../../data/diagnosis_data.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
+import '../../widgets/job_search_field.dart';
 
 class DiagnosisEditScreen extends StatelessWidget {
   const DiagnosisEditScreen({super.key});
@@ -28,7 +29,7 @@ class DiagnosisEditScreen extends StatelessWidget {
           const SizedBox(height: 14),
           for (final q in questions)
             AppCard(
-              onTap: () => _edit(context, q, answers[q.slotKey]),
+              onTap: () => _edit(context, q, answers),
               child: Row(
                 children: [
                   Expanded(
@@ -53,8 +54,9 @@ class DiagnosisEditScreen extends StatelessWidget {
     );
   }
 
-  Future<void> _edit(BuildContext context, SlotQuestion q, String? current) async {
+  Future<void> _edit(BuildContext context, SlotQuestion q, Map<String, String> answers) async {
     final state = context.read<AppState>();
+    final current = answers[q.slotKey];
     final ctrl = TextEditingController(text: current ?? '');
     final picked = await showModalBottomSheet<String>(
       context: context,
@@ -68,7 +70,16 @@ class DiagnosisEditScreen extends StatelessWidget {
           children: [
             Text(q.questionText, style: AppText.bodyBold),
             const SizedBox(height: 12),
-            if (q.freeText) ...[
+            if (q.jobSearch) ...[
+              JobSearchField(
+                field: answers['interest'],
+                selected: current,
+                maxResults: 8, // 시트가 키보드에 가려지지 않게 조금만
+                onSelected: (job) => Navigator.pop(sheet, job),
+              ),
+              const SizedBox(height: 12),
+              AppButton(label: '아직 모르겠어요', variant: ButtonVariant.outline, onPressed: () => Navigator.pop(sheet, '')),
+            ] else if (q.freeText) ...[
               TextField(controller: ctrl, autofocus: true, decoration: InputDecoration(hintText: q.hintText)),
               const SizedBox(height: 12),
               AppButton(label: '저장', onPressed: () => Navigator.pop(sheet, ctrl.text.trim())),

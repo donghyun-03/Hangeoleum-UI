@@ -1,6 +1,7 @@
 // 메인(홈) — 구조 3안: 부족한 것만 추천
 // 나의 역량(접이식, 준비도·5개 항목은 AI 판단) / 튜토리얼 박스 / 나의 활동(STEP 낮은 순) / AI 추천 활동 순서로 표시합니다.
-// 활동: STEP 1 미션, STEP 2 승인된 팀 활동, STEP 3·4 지원한 공고를 모아 보여줍니다.
+// 활동: STEP 1 미션, STEP 2 승인된 팀 활동, STEP 3·4 지원했거나 '활동에 추가'한 공고를 모아 보여줍니다.
+// 활동을 완료(체크)하면 "활동을 기록할까요?" 를 묻고, 예를 누르면 제목에 활동 이름이 들어간 기록 쓰기로 갑니다.
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -8,6 +9,7 @@ import 'package:provider/provider.dart';
 import '../../data/mock_data.dart';
 import '../../models/models.dart';
 import '../../router/routes.dart';
+import '../record/record_write_screen.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
@@ -410,6 +412,48 @@ class _ActivityRow extends StatelessWidget {
   final _HomeActivity activity;
   final bool showStep;
 
+  /// 완료 체크 → "활동을 기록할까요?" → 예: 활동 이름이 제목에 들어간 기록 쓰기로 이동
+  /// (완료 취소일 때는 묻지 않아요)
+  Future<void> _toggleDone(BuildContext context) async {
+    final wasDone = activity.done;
+    activity.onToggleDone();
+    if (wasDone) return;
+
+    // 완료하면 이 줄은 홈 목록에서 사라지므로, 이동은 화면(Navigator)으로 합니다.
+    final navigator = Navigator.of(context);
+    final write = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.paper,
+        surfaceTintColor: AppColors.paper,
+        title: Text('활동 완료!', style: AppText.title),
+        content: Text(
+          "'${activity.title}' 활동을 끝냈어요.\n활동을 기록하시겠습니까?",
+          style: AppText.body.copyWith(fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('나중에', style: TextStyle(color: AppColors.subtle)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('예', style: TextStyle(color: AppColors.green)),
+          ),
+        ],
+      ),
+    );
+    if (write != true) return;
+    navigator.pushNamed(
+      Routes.recordWrite,
+      arguments: RecordWriteArgs(
+        missionId: activity.step == 1 ? activity.id : null,
+        title: activity.title,
+        step: activity.step,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final row = Padding(
@@ -419,7 +463,7 @@ class _ActivityRow extends StatelessWidget {
           // 완료 / 완료 취소 버튼
           IconButton(
             tooltip: activity.done ? '완료 취소' : '활동 완료',
-            onPressed: activity.onToggleDone,
+            onPressed: () => _toggleDone(context),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints.tightFor(
               width: 40,

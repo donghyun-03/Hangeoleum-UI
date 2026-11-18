@@ -23,6 +23,9 @@ class SlotQuestion {
   final bool freeText;
   final String? hintText;
 
+  /// true 면 직무 목록(data/job_catalog.dart)에서 검색해서 고릅니다. (freeText 와 같이 써서 건너뛰기도 가능)
+  final bool jobSearch;
+
   const SlotQuestion({
     required this.slotKey,
     required this.questionText,
@@ -35,6 +38,7 @@ class SlotQuestion {
     this.anyConditions = const [],
     this.freeText = false,
     this.hintText,
+    this.jobSearch = false,
   });
 
   String? getResponseMessage(String answer) => responseMessages[answer];
@@ -187,11 +191,13 @@ const List<SlotQuestion> kDiagnosisQuestions = [
   ),
 
   // 6-2. 희망 직무 이름 — 6-A에서 직무가 있다고 했거나 6-C에서 '있어요'
+  //      직무 목록에서 검색해서 고릅니다 (widgets/job_search_field.dart)
   SlotQuestion(
     slotKey: 'target_job_name',
-    questionText: '해보고 싶은 직무는 뭐예요?',
+    questionText: '해보고 싶은 직무는 뭐예요? 검색해서 골라 주세요.',
     options: [],
     freeText: true,
+    jobSearch: true,
     hintText: '예: 데이터 분석, 영상 편집, 일반 사무',
     anyConditions: [
       {'target_clarity': ['목표 기업과 직무 모두 있어요', '직무만 정해뒀어요']},

@@ -1,6 +1,7 @@
 // 기록 작성 (LLM 채팅)
 // [추가 기능 1] 파일 첨부 · 깃허브 링크 첨부
 // 기록 수정 → 'AI로 다시 작성하기' 로 오면 기존 제목·STAR 가 미리 채워지고, 저장하면 같은 기록이 바뀜
+// 제목 칸과 내용 칸이 따로 있어요. 홈에서 활동을 완료하고 "기록하기"로 오면 제목에 활동 이름이 미리 들어가요.
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -14,10 +15,23 @@ import '../../widgets/common.dart';
 import 'record_result_screen.dart';
 
 const _maxLength = 500;
+const _maxTitle = 40;
 final _githubRe = RegExp(r'^https://github\.com/[\w.-]+(/[\w.-]+)?/?$');
 
+/// 기록 쓰기 화면 인자 (홈에서 활동을 완료하고 바로 기록할 때)
+class RecordWriteArgs {
+  const RecordWriteArgs({this.missionId, this.title, this.step});
+  final String? missionId;
+
+  /// 제목 칸에 미리 채울 활동 이름
+  final String? title;
+
+  /// 활동의 STEP (없으면 내 현재 STEP)
+  final int? step;
+}
+
 class RecordWriteScreen extends StatefulWidget {
-  const RecordWriteScreen({super.key, this.missionId, this.editing, this.initialText});
+  const RecordWriteScreen({super.key, this.missionId, this.editing, this.initialText, this.initialTitle, this.step});
 
   /// 미션에서 바로 기록할 때 넘김 (없으면 자유 기록)
   final String? missionId;
@@ -25,14 +39,21 @@ class RecordWriteScreen extends StatefulWidget {
   /// 기록 수정에서 다시 작성할 때 넘김 → 같은 기록(id · 날짜 · 첨부)으로 저장
   final ActivityRecord? editing;
 
-  /// 입력칸에 미리 채울 내용 (기존 제목 · STAR)
+  /// 내용 칸에 미리 채울 글 (기존 STAR)
   final String? initialText;
+
+  /// 제목 칸에 미리 채울 제목 (홈에서 완료한 활동 이름)
+  final String? initialTitle;
+
+  /// 기록의 STEP (홈 활동에서 오면 그 활동의 STEP)
+  final int? step;
 
   @override
   State<RecordWriteScreen> createState() => _RecordWriteScreenState();
 }
 
 class _RecordWriteScreenState extends State<RecordWriteScreen> {
+  late final _title = TextEditingController(text: widget.initialTitle ?? widget.editing?.title ?? _missionTitle());
   late final _text = TextEditingController(text: widget.initialText);
   final _github = TextEditingController();
   late final List<Attachment> _attachments = [...?widget.editing?.attachments];
@@ -46,8 +67,17 @@ class _RecordWriteScreenState extends State<RecordWriteScreen> {
     _text.addListener(() => setState(() {})); // 글자 수 표시 갱신
   }
 
+  /// 미션에서 바로 기록하면 미션 이름을 제목으로
+  String? _missionTitle() {
+    for (final m in context.read<AppState>().missions) {
+      if (m.id == widget.missionId) return m.title;
+    }
+    return null;
+  }
+
   @override
   void dispose() {
+    _title.dispose();
     _text.dispose();
     _github.dispose();
     super.dispose();
@@ -104,9 +134,10 @@ class _RecordWriteScreenState extends State<RecordWriteScreen> {
       return;
     }
     final state = context.read<AppState>();
-    Mission? mission;
-    for (final m in state.missions) {
-      if (m.id == widget.missionId) mission = m;
+    final typedTitle = _title.text.trim();
+    if (typedTitle.length > _maxTitle) {
+      setState(() => _error = '제목은 $_maxTitle자 이내로 적어 주세요.');
+      return;
     }
     final now = DateTime.now();
     final editing = widget.editing;
@@ -137,9 +168,11 @@ class _RecordWriteScreenState extends State<RecordWriteScreen> {
     // ③ 받은 STAR 로 초안을 만들어 결과 화면에서 확인·수정해요
     final draft = ActivityRecord(
       id: editing?.id ?? 'rec-${now.microsecondsSinceEpoch}',
-      step: editing?.step ?? state.user.currentStep,
-      // 미션 기록이면 미션 이름, 아니면 AI 가 지은 제목, 그것도 없으면 첫 줄
-      title: mission?.title ?? result.title ?? (text.split('\n').first.length > 24 ? text.split('\n').first.substring(0, 24) : text.split('\n').first),
+      step: editing?.step ?? widget.step ?? state.user.currentStep,
+      // 제목 칸에 적은 제목(활동·미션 이름이 미리 들어감), 비우면 AI 가 지은 제목, 그것도 없으면 첫 줄
+      title: typedTitle.isNotEmpty
+          ? typedTitle
+          : result.title ?? (text.split('\n').first.length > 24 ? text.split('\n').first.substring(0, 24) : text.split('\n').first),
       // YYYY-MM-DD (예: 2026-10-16)
       date: editing?.date ?? '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}',
       raw: text,
@@ -163,6 +196,17 @@ class _RecordWriteScreenState extends State<RecordWriteScreen> {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
+          // 제목 (활동에서 오면 활동 이름이 미리 들어가 있어요)
+          Text('제목', style: AppText.small.copyWith(fontSize: 12)),
+          const SizedBox(height: 6),
+          LabeledField(
+            controller: _title,
+            hint: '비워 두면 AI가 지어 줘요',
+            maxLength: _maxTitle,
+          ),
+          const SizedBox(height: 16),
+          Text('내용', style: AppText.small.copyWith(fontSize: 12)),
+          const SizedBox(height: 4),
           Text('오늘 한 일을 편하게 적어 보세요', style: AppText.h2.copyWith(fontSize: 16)),
           const SizedBox(height: 10),
           // AI 가 더 물어본 질문 (메모가 짧을 때)

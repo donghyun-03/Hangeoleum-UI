@@ -8,6 +8,7 @@ import '../../router/routes.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
+import '../../widgets/job_search_field.dart';
 
 class DiagnosisScreen extends StatefulWidget {
   const DiagnosisScreen({super.key});
@@ -273,7 +274,28 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
                             ),
                           );
                         },
-                        child: _current!.freeText
+                        child: _current!.jobSearch
+                            ? Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  // 직무는 목록에서 검색해서 고릅니다 (관심 분야 직무를 먼저 보여 줌)
+                                  JobSearchField(
+                                    field: _answers['interest'],
+                                    dark: true,
+                                    onSelected: (job) => _answer(job),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: SelectChip(
+                                      label: '아직 모르겠어요 · 건너뛰기',
+                                      selected: false,
+                                      onTap: () => _answer('', shown: '나중에 정할게요'),
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : _current!.freeText
                             ? _FreeTextInput(
                                 controller: _textCtrl,
                                 hintText: _current!.hintText,
