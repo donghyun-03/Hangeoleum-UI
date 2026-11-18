@@ -1,18 +1,20 @@
-// 메인(홈)
-// 나의 역량(접이식) / 나의 활동(STEP 낮은 순) / AI 추천 활동 순서로 표시합니다.
+// 메인(홈) — 구조 3안: 부족한 것만 추천
+// 나의 역량(접이식, 준비도·5개 항목은 AI 판단) / 튜토리얼 박스 / 나의 활동(STEP 낮은 순) / AI 추천 활동 순서로 표시합니다.
 // 활동: STEP 1 미션, STEP 2 승인된 팀 활동, STEP 3·4 지원한 공고를 모아 보여줍니다.
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../data/mock_data.dart';
-import '../../data/home_mock_data.dart';
 import '../../models/models.dart';
 import '../../router/routes.dart';
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
+import '../../services/readiness_service.dart';
+import '../../widgets/home/readiness_card.dart';
 import '../../widgets/home/recommended_section.dart';
+import '../../widgets/home/tutorial_box.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -291,6 +293,13 @@ class _YouthHome extends StatelessWidget {
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
     final activities = _collectActivities(state);
+    final readiness = state.readiness;
+    // 재료(진단 답·성적·기록·팀)가 바뀌었으면 AI 에게 다시 판단을 맡깁니다. (같으면 아무것도 안 함)
+    // 추천 활동도 같은 방식 (준비도 판단이 끝난 뒤에 고릅니다)
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await state.refreshReadiness();
+      await state.refreshRecommendations();
+    });
 
     // 완료된 활동은 홈 목록에서 숨기고, 진행 중인 활동만 STEP 순으로 표시합니다.
     final ongoing = activities.where((activity) => !activity.done).toList()
@@ -299,17 +308,26 @@ class _YouthHome extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // 나의 역량: 처음엔 준비도만 보이고, 눌러야 네 가지 역량이 펼쳐집니다.
-        // TODO: 목표 기업 기준(목표 점수)은 니즈 진단 결과에서 읽도록 교체합니다.
+        // 나의 역량: 처음엔 준비도만 보이고, 눌러야 5개 항목이 펼쳐집니다.
+        // 준비도·항목·지금 채우면 좋은 것은 AI 판단 (키가 없으면 규칙 계산). 기준은 진단 답에서 읽습니다.
         _SectionHeader(
           title: '나의 역량',
-          trailing: TagBadge(homeTargetCompanyLabel, tone: BadgeTone.gray),
+          trailing: InkWell(
+            onTap: () => Navigator.pushNamed(context, Routes.diagnosisEdit),
+            child: TagBadge('${readiness.target.label} 기준', tone: BadgeTone.gray),
+          ),
         ),
         const SizedBox(height: 10),
-        _AbilityCard(data: _buildAbilityData(state)),
+        _AbilityCard(data: _buildAbilityData(state, readiness)),
+
+        // 튜토리얼(학점·어학·첫 기록·진단) · 단계 올리기 · 직무 정하기 — 해당할 때만 보입니다.
+        const SizedBox(height: 12),
+        const TutorialBox(),
+        const StageUpCard(),
+        const DirectionCard(),
 
         // 나의 활동: 기존 활동 행(설명 · STEP 칩 · 상태)을 그대로 사용합니다.
-        const SizedBox(height: 24),
+        const SizedBox(height: 12),
         _SectionHeader(title: '나의 활동', count: ongoing.length),
         const SizedBox(height: 10),
         _ActivityList(
@@ -320,7 +338,13 @@ class _YouthHome extends StatelessWidget {
 
         // AI 추천 활동: 옆으로 밀어 보고, 버튼으로 활동에 추가합니다.
         const SizedBox(height: 24),
-        const _SectionHeader(title: 'AI 추천 활동'),
+        _SectionHeader(
+          title: 'AI 추천 활동',
+          // 키 없이 실행하거나 AI 가 실패하면 규칙 추천이라고 알려 줍니다.
+          trailing: state.recommendationsLoading
+              ? Text('AI가 고르는 중…', style: AppText.caption)
+              : (state.recommendationsFromAi ? null : const TagBadge('AI 아님 · 기본 추천', tone: BadgeTone.gray)),
+        ),
         const SizedBox(height: 10),
         const RecommendedSection(),
       ],
@@ -534,6 +558,7 @@ class _Ability {
     required this.label,
     required this.value,
     required this.max,
+    required this.status,
     this.target,
   });
 
@@ -542,97 +567,69 @@ class _Ability {
   final double max;
   final double? target;
 
+  /// 충족 · 일부 · 부족 (AI 판단)
+  final AreaStatus status;
+
   bool get hasTarget => target != null;
-  bool get achieved =>
-      value != null && target != null && value! >= target!;
+  bool get achieved => status == AreaStatus.met;
 
   double get progress =>
       value == null ? 0.0 : (value! / max).clamp(0.0, 1.0).toDouble();
 
   double? get targetProgress =>
       target == null ? null : (target! / max).clamp(0.0, 1.0).toDouble();
-
-  /// 준비도 계산용 비율. 목표가 있으면 목표 대비, 없으면 만점 대비입니다.
-  double get ratio {
-    final v = value;
-    if (v == null) return 0.0;
-    return (v / (target ?? max)).clamp(0.0, 1.0).toDouble();
-  }
 }
 
 class _AbilityData {
-  const _AbilityData({required this.readiness, required this.abilities});
+  const _AbilityData({
+    required this.readiness,
+    required this.abilities,
+    required this.result,
+    required this.loading,
+  });
 
   /// 종합 취업 준비도(0~100).
   final int readiness;
   final List<_Ability> abilities;
+  final ReadinessResult result;
+  final bool loading;
 }
 
-/// 사용자 정보(학점·어학)와 임시 AI 점수로 역량 데이터를 만듭니다.
-_AbilityData _buildAbilityData(AppState state) {
-  final user = state.user;
-
-  // 어학: 등록한 어학 점수 중 TOEIC 점수를 사용합니다.
-  double? toeic;
-  for (final language in user.languages) {
-    final exam = language.exam.toUpperCase();
-    if (exam.contains('TOEIC') || language.exam.contains('토익')) {
-      toeic = double.tryParse(language.score);
-      if (toeic != null) break;
-    }
-  }
-
-  final abilities = <_Ability>[
-    const _Ability(label: '포트폴리오', value: homeMockPortfolioScore, max: 100),
-    _Ability(
-      label: '성적',
-      value: user.gpa,
-      max: user.gpaScale,
-      target: homeTargetGpa * user.gpaScale / 4.5,
-    ),
-    _Ability(
-      label: '어학',
-      value: toeic,
-      max: homeToeicMax,
-      target: homeTargetToeic,
-    ),
-    const _Ability(label: '직무 연관성', value: homeMockJobFitScore, max: 100),
+/// 준비도 판단 결과로 역량 칸을 만듭니다.
+/// 성적·어학은 실제 값(학점 / 4.5, 토익 환산 / 990), 나머지는 점수 / 100 에 충족선(80)을 목표로 표시합니다.
+_AbilityData _buildAbilityData(AppState state, ReadinessResult r) {
+  final abilities = [
+    for (final a in r.shownAreas)
+      a.max != null
+          ? _Ability(
+              label: a.label,
+              value: a.value,
+              max: a.max!,
+              target: a.target,
+              status: a.status,
+            )
+          : _Ability(
+              label: a.label,
+              value: a.score.toDouble(),
+              max: 100,
+              target: 80,
+              status: a.status,
+            ),
   ];
 
-  // 임시 계산식: 각 역량 달성 비율의 평균입니다. AI 종합 평가가 생기면 교체합니다.
-  final average = abilities.fold<double>(0, (sum, a) => sum + a.ratio) /
-      abilities.length;
-
   return _AbilityData(
-    readiness: (average * 100).round(),
+    readiness: r.score,
     abilities: abilities,
+    result: r,
+    loading: state.readinessLoading,
   );
 }
 
 String _fmt(double n) =>
     n == n.roundToDouble() ? n.toInt().toString() : n.toStringAsFixed(1);
 
-/// 접힌 상태의 한 줄 요약. 예: "어학 40점 · 성적 0.4점 남음"
-String _remainingSummary(List<_Ability> abilities) {
-  final gaps = <String>[];
-  final missing = <String>[];
-
-  for (final ability in abilities) {
-    if (!ability.hasTarget || ability.achieved) continue;
-
-    final value = ability.value;
-    if (value == null) {
-      missing.add(ability.label);
-    } else {
-      gaps.add('${ability.label} ${_fmt(ability.target! - value)}점');
-    }
-  }
-
-  return [
-    if (gaps.isNotEmpty) '${gaps.join(' · ')} 남음',
-    if (missing.isNotEmpty) '${missing.join(', ')} 미입력',
-  ].join(' · ');
-}
+/// 접힌 상태의 한 줄 요약. 예: "지금 채우면 좋은 것 · 어학: 토익스피킹 일정 확인"
+String _fillSummary(ReadinessResult r) => '지금 채우면 좋은 것 · ${nowAction(r).title}';
 
 /// 준비도 한 줄 + 눌러서 펼치는 2x2 세부 역량.
 class _AbilityCard extends StatefulWidget {
@@ -650,13 +647,10 @@ class _AbilityCardState extends State<_AbilityCard> {
   @override
   Widget build(BuildContext context) {
     final data = widget.data;
-    final targeted =
-        data.abilities.where((ability) => ability.hasTarget).toList();
-    final allAchieved =
-        targeted.isNotEmpty && targeted.every((ability) => ability.achieved);
-    final summary = allAchieved
-        ? '모든 목표를 달성했어요'
-        : _remainingSummary(data.abilities);
+    final allAchieved = data.abilities.every((ability) => ability.achieved);
+    final summary = data.loading
+        ? 'AI가 준비도를 판단하는 중이에요…'
+        : (allAchieved ? '모든 항목을 채웠어요' : _fillSummary(data.result));
 
     return Semantics(
       button: true,
@@ -762,6 +756,57 @@ class _AbilityCardState extends State<_AbilityCard> {
               ],
             ),
           ],
+          const SizedBox(height: 16),
+          _FillBox(result: data.result),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  data.result.source == ReadinessSource.ai ? 'AI 판단' : 'AI 아님 · 기본 계산 (AI 키 없이 실행했거나 AI 오류)',
+                  style: AppText.caption.copyWith(fontSize: 11),
+                ),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pushNamed(context, Routes.readinessDetail),
+                child: Text(
+                  '자세히 보기 ›',
+                  style: AppText.caption.copyWith(fontWeight: FontWeight.w700, color: AppColors.greenDark),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 펼친 카드 아래: 지금 채우면 좋은 것 (AI 가 고른 항목과 할 일)
+class _FillBox extends StatelessWidget {
+  const _FillBox({required this.result});
+
+  final ReadinessResult result;
+
+  @override
+  Widget build(BuildContext context) {
+    final action = nowAction(result);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+      decoration: BoxDecoration(
+        color: AppColors.soft,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('지금 채우면 좋은 것', style: AppText.caption),
+          const SizedBox(height: 3),
+          Text(action.title, style: AppText.bodyBold.copyWith(fontSize: 13.5)),
+          if (action.note.isNotEmpty) ...[
+            const SizedBox(height: 3),
+            Text(action.note, style: AppText.caption.copyWith(fontSize: 11.5)),
+          ],
         ],
       ),
     );
@@ -777,11 +822,9 @@ class _AbilityCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final value = ability.value;
-    final hint = !ability.hasTarget
-        ? null
-        : ability.achieved
-            ? '목표 달성'
-            : '목표 ${_fmt(ability.target!)}';
+    final hint = ability.achieved
+        ? '충족'
+        : '${areaStatusLabel[ability.status]} · 목표 ${_fmt(ability.target ?? ability.max)}';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -813,19 +856,21 @@ class _AbilityCell extends StatelessWidget {
           keepEndSpace: true,
         ),
         const SizedBox(height: 5),
-        // 목표가 없는 역량도 줄 높이를 맞추기 위해 같은 높이를 비워 둡니다.
+        // 칸마다 줄 높이를 맞추기 위해 같은 높이를 둡니다.
         SizedBox(
           height: 16,
-          child: hint == null
-              ? null
-              : Text(
-                  hint,
-                  style: AppText.caption.copyWith(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.greenDark,
-                  ),
-                ),
+          child: Text(
+            hint,
+            style: AppText.caption.copyWith(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: switch (ability.status) {
+                AreaStatus.met => AppColors.greenDark,
+                AreaStatus.partial => AppColors.amber,
+                AreaStatus.lacking => AppColors.red,
+              },
+            ),
+          ),
         ),
       ],
     );

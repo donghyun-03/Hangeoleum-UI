@@ -8,9 +8,16 @@
 // API 연결 시: 각 액션 안에서 서버를 호출하고 결과로 값을 바꾼 뒤 notifyListeners() 하면 됩니다.
 import 'package:flutter/foundation.dart';
 
+import '../data/diagnosis_data.dart';
 import '../data/mock_data.dart';
 import '../models/models.dart';
 import '../models/diagnosis_profile.dart';
+import '../data/user_profile_store.dart';
+import '../services/llm_client.dart';
+import '../services/readiness_ai.dart';
+import '../services/readiness_service.dart';
+import '../services/recommend_ai.dart';
+import '../data/home_recommendation_data.dart';
 
 class AppState extends ChangeNotifier {
   // ───────────────────────── 사용자 / 인증
@@ -57,12 +64,26 @@ class AppState extends ChangeNotifier {
       diagnosed: diagnosed,
       name: role == UserRole.institution ? '서울청년센터' : mockUser.name,
     );
+    _loadProfile();
+    // 시연용: 진단을 마친 계정인데 저장된 진단이 없으면 샘플 진단 답을 넣어 둡니다.
+    if (diagnosed && _diagnosis.isEmpty && role == UserRole.youth) {
+      _diagnosis = mockDiagnosis;
+      _saveProfile();
+    }
     notifyListeners();
   }
 
   void logout() {
+    _saveProfile();
     _user = mockUser;
-    _diagnosis = DiagnosisProfile.empty;   // ← 추가
+    _diagnosis = DiagnosisProfile.empty;
+    _aiReadiness = null;
+    _aiSignature = null;
+    _tutorialClosed = false;
+    _tutorialSkipped.clear();
+    _likes.clear();
+    _aiRecs = null;
+    _aiRecsSignature = null;
     notifyListeners();
   }
   // ───────────────────────── 미션 (STEP 1, 미션 수정)
@@ -72,7 +93,15 @@ class AppState extends ChangeNotifier {
   void updateMission(String id, Mission Function(Mission m) change) {
     final i = _missions.indexWhere((m) => m.id == id);
     if (i < 0) return;
-    _missions[i] = change(_missions[i]);
+    final before = _missions[i];
+    _missions[i] = change(before);
+    // 리듬 회복 판단용: 미션을 완료한 시각을 남깁니다.
+    if (before.status != MissionStatus.done && _missions[i].status == MissionStatus.done) {
+      _missionDoneLog.add((id: id, at: DateTime.now()));
+    } else if (before.status == MissionStatus.done && _missions[i].status != MissionStatus.done) {
+      final j = _missionDoneLog.lastIndexWhere((e) => e.id == id);
+      if (j >= 0) _missionDoneLog.removeAt(j);
+    }
     notifyListeners();
   }
   
@@ -414,7 +443,313 @@ class AppState extends ChangeNotifier {
   DiagnosisProfile get diagnosis => _diagnosis;
 
   void saveDiagnosis(DiagnosisProfile p) {
+    final old = effectiveDiagnosis;
     _diagnosis = p;
+    _reopenTutorialIfNeeded(old, p, all: true);
+    _saveProfile();
     notifyListeners();
+  }
+
+  /// 진단을 안 했으면 기본값([DiagnosisProfile.fallback])을 씁니다. 준비도·추천은 이 값을 봅니다.
+  DiagnosisProfile get effectiveDiagnosis =>
+      _diagnosis.isEmpty ? DiagnosisProfile.fallback(interests: _user.interests) : _diagnosis;
+
+  bool get hasDiagnosis => !_diagnosis.isEmpty;
+
+  // ───────────────────────── 준비도 · 단계 (홈 3안)
+
+  /// 미션 완료 기록 (최근 리듬 판단용)
+  final List<({String id, DateTime at})> _missionDoneLog = [];
+
+  /// "다음 단계로 바꿀까요?"를 '아직이요'로 미룬 날짜
+  DateTime? _stageAskSnoozedAt;
+
+  /// 참여가 확정된 팀 프로젝트 (그만둔 것 제외)
+  List<TeamPost> get acceptedTeams => [
+        for (final p in _teamPosts)
+          if (applicationFor(p.id)?.status == ApplicationStatus.accepted &&
+              !isActivityStopped(step: 2, activityId: p.id))
+            p,
+      ];
+
+  Set<String> get doneTeamIds => {..._completedHomeActivityIds[2] ?? const <String>{}};
+
+  ReadinessInput get _readinessInput => ReadinessInput(
+        user: _user,
+        diagnosis: effectiveDiagnosis,
+        records: _records,
+        acceptedTeams: acceptedTeams,
+        doneTeamIds: doneTeamIds,
+        likes: _likes,
+        needsDirection: needsDirection,
+      );
+
+  /// AI 판단기. 키 없이 실행하면 null → 규칙 계산만 씁니다. (테스트에서 가짜로 바꿔 끼울 수 있어요)
+  ReadinessJudge? readinessJudge = hasLlmKey ? BazeReadinessJudge() : null;
+
+  ReadinessResult? _aiReadiness;
+  String? _aiSignature;
+  bool _readinessLoading = false;
+  String? _readinessError;
+
+  bool get readinessLoading => _readinessLoading;
+  String? get readinessError => _readinessError;
+
+  /// 준비도: 재료가 그대로면 마지막 AI 판단, 아니면(또는 AI 없음) 규칙 계산
+  ReadinessResult get readiness {
+    final input = _readinessInput;
+    final ai = _aiReadiness;
+    if (ai != null && _aiSignature == input.signature) return ai;
+    return input.ruleResult();
+  }
+
+  /// 재료가 바뀌었으면 AI 에게 다시 판단을 맡깁니다. 홈이 보일 때 부릅니다.
+  Future<void> refreshReadiness({bool force = false}) async {
+    final judge = readinessJudge;
+    if (judge == null || _readinessLoading || isInstitution) return;
+    final input = _readinessInput;
+    final sig = input.signature;
+    if (!force && _aiSignature == sig && _aiReadiness != null) return;
+    if (!force && _readinessError != null && _failedSignature == sig) return; // 같은 재료로 실패했으면 반복 호출하지 않음
+
+    _readinessLoading = true;
+    _readinessError = null;
+    notifyListeners();
+    try {
+      // 준비도와 홈 추천 활동을 한 번에 물어봅니다. (2번 부르면 느려서)
+      final candidates = recommendJudge == null ? const <HomeRecommendation>[] : allHomeCandidates(this);
+      final result = await judge.judge(input.withCandidates(candidates));
+      _aiReadiness = result;
+      _aiSignature = sig;
+      if (result.picks.isNotEmpty) {
+        final rec = _recommendInput; // 새 준비도로 다시 만든 재료
+        try {
+          _aiRecs = BazeRecommendJudge.parse({
+            'picks': [for (final p in result.picks) {'id': p.id, 'reason': p.reason}],
+          }, rec.candidates);
+          _aiRecsSignature = rec.signature;
+        } catch (_) {
+          // 고른 게 후보에 없으면 아래 refreshRecommendations 가 따로 물어봅니다.
+        }
+      }
+      _saveProfile();
+    } catch (e) {
+      _readinessError = '$e';
+      _failedSignature = sig;
+    } finally {
+      _readinessLoading = false;
+      notifyListeners();
+    }
+  }
+
+  String? _failedSignature;
+
+  // ───────────────────────── 끌리는 것 (관심 찾기 카드)
+  final List<String> _likes = [];
+  List<String> get likes => List.unmodifiable(_likes);
+
+  /// 분야·기업·직무를 아직 모르는 사람인지 (관심 찾기 카드·AI 방향 추천 대상)
+  /// 진단에서 "모르겠어요 / 고민 중 / 아직 없어요 / 찾아가는 중"이라고 답한 것이 있을 때만 true.
+  /// 직무·기업을 정했다고 답했으면 이름 칸을 비워 뒀어도 false 입니다.
+  bool get needsDirection {
+    final d = effectiveDiagnosis;
+    return d.interests.isEmpty || d.companyPreference == '아직 고민 중이에요' || d.hasDesiredJob == false;
+  }
+
+  void setLikes(List<String> likes) {
+    _likes
+      ..clear()
+      ..addAll(likes.map((e) => e.trim()).where((e) => e.isNotEmpty).toSet());
+    _saveProfile();
+    notifyListeners();
+  }
+
+  // ───────────────────────── AI 추천 활동
+  /// AI 추천기. 키 없이 실행하면 null → 규칙 추천만 씁니다.
+  RecommendJudge? recommendJudge = hasLlmKey ? BazeRecommendJudge() : null;
+
+  List<HomeRecommendation>? _aiRecs;
+  String? _aiRecsSignature;
+  String? _failedRecsSignature;
+  bool _recsLoading = false;
+  bool get recommendationsLoading => _recsLoading;
+
+  RecommendInput get _recommendInput => RecommendInput(
+        readiness: readiness,
+        diagnosis: effectiveDiagnosis,
+        candidates: allHomeCandidates(this),
+        likes: _likes,
+      );
+
+  /// 홈 추천 활동: 재료가 그대로면 AI 가 고른 것, 아니면(또는 AI 없음) 규칙 추천
+  List<HomeRecommendation> get homeRecommendations {
+    final ai = _aiRecs;
+    if (ai != null && _aiRecsSignature == _recommendInput.signature) return ai;
+    return buildHomeRecommendations(this);
+  }
+
+  bool get recommendationsFromAi => _aiRecs != null && _aiRecsSignature == _recommendInput.signature;
+
+  Future<void> refreshRecommendations() async {
+    final judge = recommendJudge;
+    if (judge == null || _recsLoading || isInstitution || _readinessLoading) return;
+    final input = _recommendInput;
+    if (input.candidates.isEmpty) return;
+    final sig = input.signature;
+    if (_aiRecsSignature == sig || _failedRecsSignature == sig) return;
+    _recsLoading = true;
+    notifyListeners();
+    try {
+      _aiRecs = await judge.pick(input);
+      _aiRecsSignature = sig;
+    } catch (_) {
+      _failedRecsSignature = sig;
+    } finally {
+      _recsLoading = false;
+      notifyListeners();
+    }
+  }
+
+  UserStage get stage => stageOf(effectiveDiagnosis);
+
+  /// 지금 단계에서 다음 단계로 넘어가도 될 것 같으면 다음 단계를, 아니면 null.
+  /// - 리듬 → 교류: 최근 7일 동안 미션을 3번 이상 완료
+  /// - 교류 → 탐색: 팀 프로젝트 참여 확정, 또는 '모임' 미션 2개 완료
+  /// - 탐색 → 취업 준비: 준비도 60점 이상
+  /// 사용자에게 물어보고 '네'를 눌러야 바뀝니다. '아직이요'를 누르면 그날은 다시 묻지 않습니다.
+  UserStage? get suggestedNextStage {
+    if (_diagnosis.isEmpty) return null;
+    final snoozed = _stageAskSnoozedAt;
+    final now = DateTime.now();
+    if (snoozed != null && now.difference(snoozed).inHours < 24) return null;
+
+    switch (stage) {
+      case UserStage.rhythm:
+        final week = now.subtract(const Duration(days: 7));
+        final recent = _missionDoneLog.where((e) => e.at.isAfter(week)).length;
+        return recent >= 3 ? UserStage.social : null;
+      case UserStage.social:
+        final meetups = _missions.where((m) => m.category == '모임' && m.status == MissionStatus.done).length;
+        return (acceptedTeams.isNotEmpty || meetups >= 2) ? UserStage.explore : null;
+      case UserStage.explore:
+        return readiness.score >= 60 ? UserStage.ready : null;
+      case UserStage.ready:
+        return null;
+    }
+  }
+
+  /// 단계 올리기: 진단 1번 답을 다음 단계 답으로 바꿉니다.
+  void moveToStage(UserStage next) {
+    _diagnosis = effectiveDiagnosis.withAnswer('current_status', stageAnswers[next]!);
+    _saveProfile();
+    notifyListeners();
+  }
+
+  void snoozeStageAsk() {
+    _stageAskSnoozedAt = DateTime.now();
+    notifyListeners();
+  }
+
+  /// 진단 답 하나 바꾸기 (내 기준 바꾸기). 관심 분야는 사용자 정보에도 반영합니다.
+  void updateDiagnosisAnswer(String slotKey, String value) {
+    final old = effectiveDiagnosis;
+    _diagnosis = old.withAnswer(slotKey, value);
+    _reopenTutorialIfNeeded(old, _diagnosis);
+    if (slotKey == 'interest') {
+      _user = _user.copyWith(interests: _diagnosis.interests);
+    }
+    _saveProfile();
+    notifyListeners();
+  }
+
+  /// 희망 직무 정하기 (고민 중 카드에서 직무를 고를 때).
+  /// 6번 분기 답을 "직무 있음"으로 맞춘 뒤 직무 이름을 저장합니다.
+  /// [field] 를 주면 관심 분야가 비어 있을 때 먼저 채웁니다. (직무는 관심 분야가 있어야 저장할 수 있어요)
+  void setTargetJob(String job, {String? field}) {
+    var d = effectiveDiagnosis;
+    if (d.interests.isEmpty) {
+      d = d.withAnswer('interest', field ?? fieldFromMajor(_user.major) ?? 'IT·데이터');
+      _user = _user.copyWith(interests: d.interests);
+    }
+    final visible = visibleQuestions(d.answers).map((q) => q.slotKey).toSet();
+    if (visible.contains('target_clarity')) {
+      d = d.withAnswer('target_clarity', d.targetCompanyName != null ? '목표 기업과 직무 모두 있어요' : '직무만 정해뒀어요');
+    } else if (visible.contains('desired_job_only')) {
+      d = d.withAnswer('desired_job_only', '있어요');
+    }
+    _diagnosis = d.withAnswer('target_job_name', job);
+    _saveProfile();
+    notifyListeners();
+  }
+
+  // ───────────────────────── 홈 튜토리얼 박스
+  /// 진단 답이 바뀌어서 새로 해야 할 일이 생기면(예: 포트폴리오 "있음"으로 바꿈) 닫았던 시작 가이드를 다시 엽니다.
+  /// [all] 이면(진단을 처음부터 다시 함) 진단에 따라 나오는 카드를 모두 다시 보여 줍니다.
+  void _reopenTutorialIfNeeded(DiagnosisProfile old, DiagnosisProfile now, {bool all = false}) {
+    final again = <String>{
+      if (all) ...['portfolio', 'language', 'likes', 'certificate', 'record'],
+      if (now.hasPortfolio == true && old.hasPortfolio != true) 'portfolio',
+      if (now.hasLanguageScore == true && old.hasLanguageScore != true) 'language',
+    };
+    if (again.isEmpty) return;
+    _tutorialSkipped.removeAll(again);
+    _tutorialClosed = false;
+  }
+
+  bool _tutorialClosed = false;
+  final Set<String> _tutorialSkipped = {};
+
+  bool get tutorialClosed => _tutorialClosed;
+  bool isTutorialSkipped(String step) => _tutorialSkipped.contains(step);
+
+  void skipTutorialStep(String step) {
+    if (_tutorialSkipped.add(step)) {
+      _saveProfile();
+      notifyListeners();
+    }
+  }
+
+  void closeTutorial() {
+    _tutorialClosed = true;
+    _saveProfile();
+    notifyListeners();
+  }
+
+  // ───────────────────────── 사람마다 저장 (진단 답 · 준비도 · 튜토리얼)
+  /// 저장소. 지금은 메모리, 서버를 붙이면 이 값만 바꿉니다. (data/user_profile_store.dart)
+  UserProfileStore profileStore = MemoryUserProfileStore();
+
+  void _saveProfile() {
+    if (isInstitution) return;
+    profileStore.save(
+      _user.id,
+      StoredProfile(
+        diagnosis: _diagnosis,
+        readinessJson: _aiReadiness?.toJson(),
+        readinessSignature: _aiSignature,
+        tutorialClosed: _tutorialClosed,
+        tutorialSkipped: {..._tutorialSkipped},
+        likes: [..._likes],
+      ),
+    );
+  }
+
+  void _loadProfile() {
+    final p = profileStore.load(_user.id);
+    if (p == null || isInstitution) return;
+    _diagnosis = p.diagnosis;
+    _tutorialClosed = p.tutorialClosed;
+    _tutorialSkipped
+      ..clear()
+      ..addAll(p.tutorialSkipped);
+    _likes
+      ..clear()
+      ..addAll(p.likes);
+    final j = p.readinessJson;
+    if (j != null) {
+      final rule = _readinessInput.ruleResult();
+      _aiReadiness = ReadinessResult.fromJson(j, target: rule.target, stage: rule.stage);
+      _aiSignature = p.readinessSignature;
+    }
   }
 }

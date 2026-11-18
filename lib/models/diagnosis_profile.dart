@@ -24,7 +24,55 @@ class DiagnosisProfile {
 
   static const empty = DiagnosisProfile({});
 
+  /// 진단을 안 하고 들어왔을 때 쓰는 기본값.
+  /// 교육·공모전 탐색 단계, 하루 30분, 기업은 고민 중으로 두고 관심 분야는 회원 정보에서 가져옵니다.
+  factory DiagnosisProfile.fallback({List<String> interests = const []}) {
+    const fields = {'IT·데이터', '디자인·영상', '사무·행정'};
+    final field = interests.where(fields.contains).firstOrNull;
+    return DiagnosisProfile({
+      'current_status': '잘 모르겠어요.',
+      'primary_goal': '경험 쌓기',
+      'time_commitment': '30분 정도',
+      'interest': field ?? '아직 잘 모르겠어요',
+      'company_preference': '아직 고민 중이에요',
+    });
+  }
+
   bool get isEmpty => answers.isEmpty;
+
+  /// 한 항목의 답을 바꾼 새 진단을 돌려줍니다. (내 기준 바꾸기 화면에서 사용)
+  /// 바뀐 답 때문에 더 이상 묻지 않는 질문(예: 6번 분기)의 답은 지웁니다.
+  DiagnosisProfile withAnswer(String slotKey, String value) {
+    final next = Map<String, String>.from(answers)..[slotKey] = value;
+
+    // 6번 분기가 바뀌어도 이미 적어 둔 기업·직무 이름은 살립니다.
+    final company = slotKey == 'target_company_name' ? null : targetCompanyName;
+    final job = slotKey == 'target_job_name' ? null : targetJobName;
+    final branchKeys = {'target_clarity', 'target_company_only', 'desired_job_only'};
+    if (!branchKeys.contains(slotKey)) {
+      final visible = visibleQuestions(next).map((q) => q.slotKey).toSet();
+      if (visible.contains('target_clarity') && !next.containsKey('target_clarity') && (company != null || job != null)) {
+        next['target_clarity'] = company != null && job != null
+            ? '목표 기업과 직무 모두 있어요'
+            : (company != null ? '목표 기업만 정해뒀어요' : '직무만 정해뒀어요');
+      }
+      if (visible.contains('desired_job_only') && !next.containsKey('desired_job_only') && job != null) {
+        next['desired_job_only'] = '있어요';
+      }
+      if (visible.contains('target_company_only') && !next.containsKey('target_company_only') && company != null) {
+        next['target_company_only'] = '있어요';
+      }
+    }
+
+    // 더 이상 묻지 않는 질문의 답을 지웁니다. (지우면 또 안 보이게 되는 질문이 있어 바뀌지 않을 때까지 반복)
+    while (true) {
+      final visibleKeys = visibleQuestions(next).map((q) => q.slotKey).toSet();
+      final before = next.length;
+      next.removeWhere((key, _) => !visibleKeys.contains(key));
+      if (next.length == before) break;
+    }
+    return DiagnosisProfile(next, completedAt: completedAt);
+  }
 
   // ───────────── 항목별 getter
 
@@ -32,6 +80,20 @@ class DiagnosisProfile {
   String? get primaryGoal => answers['primary_goal'];
   String? get timeCommitment => answers['time_commitment'];
   String? get companyPreference => answers['company_preference'];
+
+  /// 관심 분야 원래 답 ('아직 잘 모르겠어요' 포함)
+  String? get interest => answers['interest'];
+
+  /// 직접 입력한 목표 기업 이름 (없거나 건너뛰면 null)
+  String? get targetCompanyName => _text('target_company_name');
+
+  /// 직접 입력한 희망 직무 이름 (없거나 건너뛰면 null)
+  String? get targetJobName => _text('target_job_name');
+
+  String? _text(String key) {
+    final v = answers[key]?.trim();
+    return (v == null || v.isEmpty) ? null : v;
+  }
 
   /// 기존 코드 호환용: 사기업 / 공기업 / null
   String? get companyType {
@@ -181,6 +243,8 @@ class DiagnosisProfile {
     'target_clarity': '목표 기업 및 희망 직무 보유 여부',
     'target_company_only': '특정 희망 기업 보유 여부',
     'desired_job_only': '희망 직무 보유 여부',
+    'target_company_name': '목표 기업',
+    'target_job_name': '희망 직무',
     'readiness_assets': '포트폴리오(활동 경험) 및 어학 성적 보유 여부',
   };
 
@@ -206,6 +270,7 @@ class DiagnosisProfile {
       'target_clarity',
       'target_company_only',
       'desired_job_only',
+      'target_job_name',
       'readiness_assets',
     ],
     DiagnosisUse.companyRecommendation: [
@@ -213,6 +278,8 @@ class DiagnosisProfile {
       'target_clarity',
       'target_company_only',
       'desired_job_only',
+      'target_company_name',
+      'target_job_name',
       'interest',
       'readiness_assets',
     ],
@@ -228,7 +295,7 @@ class DiagnosisProfile {
       if (keys != null && !keys.contains(q.slotKey)) continue;
 
       final v = answers[q.slotKey];
-      if (v == null) continue;
+      if (v == null || v.trim().isEmpty) continue;
 
       lines.add('- ${_labels[q.slotKey] ?? q.slotKey}: $v');
     }

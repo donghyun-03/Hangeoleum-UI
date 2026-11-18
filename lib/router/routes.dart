@@ -13,6 +13,8 @@ import '../screens/application/application_status_screen.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/auth/signup_screen.dart';
 import '../screens/common/coming_soon_screen.dart';
+import '../screens/home/diagnosis_edit_screen.dart';
+import '../screens/home/readiness_detail_screen.dart';
 import '../screens/institution/program_register_screen.dart';
 import '../screens/notification/notification_screen.dart';
 import '../screens/onboarding/diagnosis_screen.dart';
@@ -33,7 +35,11 @@ class Routes {
   // 인증·온보딩
   static const login = '/login';
   static const signup = '/signup';
-  static const diagnosis = '/diagnosis'; // AI 대화 Q1~Q4
+  static const diagnosis = '/diagnosis'; // AI 대화 니즈 진단
+
+  // 홈 준비도 (구조 3안)
+  static const readinessDetail = '/home/readiness'; // 준비도 자세히 보기
+  static const diagnosisEdit = '/home/criteria'; // 내 기준(진단 답) 바꾸기
 
   /// 하단 탭(홈 · STEP · 스크랩 · 전체)이 있는 메인 화면
   static const main = '/main';
@@ -70,6 +76,8 @@ Route<dynamic> onGenerateRoute(RouteSettings settings) {
     Routes.login => const LoginScreen(),
     Routes.signup => const SignupScreen(),
     Routes.diagnosis => const DiagnosisScreen(),
+    Routes.readinessDetail => const ReadinessDetailScreen(),
+    Routes.diagnosisEdit => const DiagnosisEditScreen(),
     Routes.main => const MainShell(),
     Routes.recordList => const RecordListScreen(),
     Routes.recordWrite => RecordWriteScreen(missionId: args as String?),

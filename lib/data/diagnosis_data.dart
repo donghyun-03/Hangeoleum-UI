@@ -16,6 +16,13 @@ class SlotQuestion {
   /// 복합 선행 조건 (여러 슬롯의 조건을 AND로 모두 만족해야 노출)
   final Map<String, List<String>> conditions;
 
+  /// 여러 조건 묶음 중 하나라도 만족하면 노출 (OR). 비어 있으면 검사하지 않습니다.
+  final List<Map<String, List<String>>> anyConditions;
+
+  /// true 면 보기 대신 직접 입력칸을 보여 줍니다. (건너뛰면 빈 문자열로 저장)
+  final bool freeText;
+  final String? hintText;
+
   const SlotQuestion({
     required this.slotKey,
     required this.questionText,
@@ -25,6 +32,9 @@ class SlotQuestion {
     this.dependsOnSlot,
     this.dependsOnValues = const [],
     this.conditions = const {},
+    this.anyConditions = const [],
+    this.freeText = false,
+    this.hintText,
   });
 
   String? getResponseMessage(String answer) => responseMessages[answer];
@@ -38,6 +48,12 @@ class SlotQuestion {
       if (!entry.value.contains(answers[entry.key])) {
         return false;
       }
+    }
+    if (anyConditions.isNotEmpty) {
+      final anyMatch = anyConditions.any(
+        (group) => group.entries.every((e) => e.value.contains(answers[e.key])),
+      );
+      if (!anyMatch) return false;
     }
     return true;
   }
@@ -154,6 +170,33 @@ const List<SlotQuestion> kDiagnosisQuestions = [
       '있어요': '좋아요 😊 직무 방향이 잡혀 있으면 어울리는 기업을 찾기가 훨씬 수월하죠.',
       '아직 없어요': '괜찮아요 😊 관심 분야 안에서 작은 경험부터 해보며 찾아가면 돼요.',
     },
+  ),
+
+  // 6-1. 목표 기업 이름 — 6-A에서 기업이 있다고 했거나 6-B에서 '있어요'
+  //      준비도 기준(예: 삼성전자 DX)을 잡는 데 씁니다. 건너뛸 수 있습니다.
+  SlotQuestion(
+    slotKey: 'target_company_name',
+    questionText: '어떤 기업인지 알려 줄래요? 기업 이름만 적어도 돼요.',
+    options: [],
+    freeText: true,
+    hintText: '예: 삼성전자, 국민건강보험공단',
+    anyConditions: [
+      {'target_clarity': ['목표 기업과 직무 모두 있어요', '목표 기업만 정해뒀어요']},
+      {'target_company_only': ['있어요']},
+    ],
+  ),
+
+  // 6-2. 희망 직무 이름 — 6-A에서 직무가 있다고 했거나 6-C에서 '있어요'
+  SlotQuestion(
+    slotKey: 'target_job_name',
+    questionText: '해보고 싶은 직무는 뭐예요?',
+    options: [],
+    freeText: true,
+    hintText: '예: 데이터 분석, 영상 편집, 일반 사무',
+    anyConditions: [
+      {'target_clarity': ['목표 기업과 직무 모두 있어요', '직무만 정해뒀어요']},
+      {'desired_job_only': ['있어요']},
+    ],
   ),
 
   // 7. 포트폴리오(활동 경험) 및 어학 성적 보유 여부 통합
