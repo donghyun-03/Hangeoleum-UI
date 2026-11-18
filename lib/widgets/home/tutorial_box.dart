@@ -29,6 +29,14 @@ List<_Step> _stepsFor(AppState state) {
     if (!state.hasDiagnosis)
       _Step('diagnosis', '내 기준 정하기', '질문 몇 개에 답하면 관심 분야·희망 기업에 맞춰 준비도를 계산해요. 지금은 기본값으로 보여 주고 있어요.',
           '질문 답하기', (c) => Navigator.pushNamed(c, Routes.diagnosis)),
+    // 진단에서 포트폴리오가 "있다"고 했으면 (기존 기록이 있어도) 맨 앞에서 넣어 달라고 안내합니다.
+    // "포트폴리오 넣기"를 누르거나 건너뛰면 이 카드는 사라져요.
+    if (d.hasPortfolio == true)
+      _Step('portfolio', '포트폴리오를 넣어 주세요!', '진단에서 포트폴리오가 있다고 했어요. 해 본 공모전·프로젝트를 기록하고 파일이나 링크를 붙이면 준비도에 바로 반영돼요.',
+          '포트폴리오 넣기', (c) {
+        c.read<AppState>().skipTutorialStep('portfolio');
+        AppNav.toRecordWrite(c);
+      }),
     if (ReadinessService.isUniversity(u.education) && u.gpa == null)
       _Step('gpa', '학점 넣기', '대학을 다녔다면 학점이 "성적" 항목에 들어가요. 전체 평균 학점 하나면 돼요.', '학점 입력', _askGpa),
     // 분야·기업·직무를 모른다고 했으면: 끌리는 것 아무거나 몇 개 → AI 가 방향 추천
@@ -42,15 +50,7 @@ List<_Step> _stepsFor(AppState state) {
     if (u.certificates.isEmpty && state.readiness.area(ReadinessArea.certificate).weight > 0.1)
       _Step('certificate', '자격증 넣기', '${state.readiness.target.label} 기준에서는 자격증도 봐요. 이미 딴 자격증이 있으면 넣어 주세요. 없으면 건너뛰어도 돼요.',
           '자격증 입력', _askCertificate),
-    // 진단에서 포트폴리오가 "있다"고 했으면 (기존 기록이 있어도) 한 번은 올리라고 안내합니다.
-    // "기록 쓰기"를 누르거나 건너뛰면 이 카드는 사라져요.
-    if (d.hasPortfolio == true)
-      _Step('portfolio', '포트폴리오 적기', '진단에서 포트폴리오가 있다고 했어요. 해 본 공모전·프로젝트를 기록하고 파일이나 링크를 붙이면 준비도에 바로 반영돼요.',
-          '기록 쓰기', (c) {
-        c.read<AppState>().skipTutorialStep('portfolio');
-        AppNav.toRecordWrite(c);
-      })
-    else if (state.records.isEmpty)
+    if (state.records.isEmpty && d.hasPortfolio != true)
       _Step('record', '첫 활동 기록 남기기', '해 본 일을 편하게 적으면 AI가 정리해 줘요. 기록이 쌓일수록 준비도가 정확해져요.', '기록 쓰기',
           (c) => AppNav.toRecordWrite(c)),
     _Step('howto', '준비도 보는 법', '"나의 역량"을 누르면 5개 항목과 지금 채우면 좋은 것이 펼쳐져요. 자세히 보기에서 항목별로 뭐가 부족한지 볼 수 있어요.',
