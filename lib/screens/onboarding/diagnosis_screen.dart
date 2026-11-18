@@ -20,6 +20,7 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
   final Map<String, String> _answers = {};
   final List<(bool fromMe, String text)> _msgs = [];
   final ScrollController _scroll = ScrollController();
+  final TextEditingController _textCtrl = TextEditingController();
 
   double _topFadeStrength = 0.0;
   bool _isTyping = true;
@@ -107,10 +108,12 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
   void dispose() {
     _scroll.removeListener(_onScroll);
     _scroll.dispose();
+    _textCtrl.dispose();
     super.dispose();
   }
 
-  Future<void> _answer(String option) async {
+  /// [shown] 은 말풍선에 보일 문장입니다. (직접 입력을 건너뛰면 값은 빈 문자열)
+  Future<void> _answer(String option, {String? shown}) async {
     if (_done || _isTyping) return;
 
     final question = _current;
@@ -118,9 +121,10 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
 
     setState(() {
       _answers[question.slotKey] = option;
-      _msgs.add((true, option));
+      _msgs.add((true, shown ?? option));
       _isTyping = true;
     });
+    _textCtrl.clear();
     _scrollToBottom();
 
     final nextAiMsgs = <String>[];
@@ -162,6 +166,14 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
         ));
 
     context.read<MainTabs>().go(MainTab.home);
+    // 학점·어학·첫 기록 입력은 홈의 튜토리얼 박스에서 도와줍니다.
+    AppNav.resetTo(context, Routes.main);
+  }
+
+  void _skip() {
+    final state = context.read<AppState>();
+    state.updateUser((u) => u.copyWith(diagnosed: true, currentStep: 1));
+    context.read<MainTabs>().go(MainTab.home);
     AppNav.resetTo(context, Routes.main);
   }
 
@@ -175,6 +187,12 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
       appBar: AppBar(
         title: const Text('알아보기'),
         actions: [
+          // 진단을 건너뛰면 기본값으로 시작하고, 홈 튜토리얼 박스에서 다시 할 수 있어요.
+          if (!_done)
+            TextButton(
+              onPressed: _skip,
+              child: Text('나중에 하기', style: AppText.caption.copyWith(color: AppColors.muted)),
+            ),
           Padding(
             padding: const EdgeInsets.only(right: 16),
             child: Center(
@@ -255,17 +273,24 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
                             ),
                           );
                         },
-                        child: ChipWrap(
-                          children: [
-                            for (final option in _current!.options)
-                              SelectChip(
-                                label: option,
-                                selected: false,
-                                dark: true,
-                                onTap: () => _answer(option),
+                        child: _current!.freeText
+                            ? _FreeTextInput(
+                                controller: _textCtrl,
+                                hintText: _current!.hintText,
+                                onSubmit: (text) => _answer(text),
+                                onSkip: () => _answer('', shown: '나중에 정할게요'),
+                              )
+                            : ChipWrap(
+                                children: [
+                                  for (final option in _current!.options)
+                                    SelectChip(
+                                      label: option,
+                                      selected: false,
+                                      dark: true,
+                                      onTap: () => _answer(option),
+                                    ),
+                                ],
                               ),
-                          ],
-                        ),
                       ),
                   ],
                 ),
@@ -295,6 +320,65 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// 직접 입력 질문(목표 기업·직무 이름)용 입력칸 + 건너뛰기.
+class _FreeTextInput extends StatelessWidget {
+  const _FreeTextInput({
+    required this.controller,
+    required this.onSubmit,
+    required this.onSkip,
+    this.hintText,
+  });
+
+  final TextEditingController controller;
+  final ValueChanged<String> onSubmit;
+  final VoidCallback onSkip;
+  final String? hintText;
+
+  void _send() {
+    final text = controller.text.trim();
+    if (text.isEmpty) return;
+    onSubmit(text);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: controller,
+                autofocus: true,
+                textInputAction: TextInputAction.send,
+                onSubmitted: (_) => _send(),
+                decoration: InputDecoration(hintText: hintText),
+              ),
+            ),
+            const SizedBox(width: 8),
+            AppButton(
+              label: '보내기',
+              small: true,
+              expand: false,
+              onPressed: _send,
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: SelectChip(
+            label: '아직 모르겠어요 · 건너뛰기',
+            selected: false,
+            onTap: onSkip,
+          ),
+        ),
+      ],
     );
   }
 }

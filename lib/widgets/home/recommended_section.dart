@@ -3,7 +3,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../data/home_recommendation_data.dart';
 import '../../models/models.dart';
 import '../../router/main_tabs.dart';
 import '../../router/routes.dart';
@@ -89,7 +88,7 @@ class RecommendedSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
-    final items = buildHomeRecommendations(state);
+    final items = state.homeRecommendations;
 
     if (items.isEmpty) {
       return Padding(
@@ -104,7 +103,7 @@ class RecommendedSection extends StatelessWidget {
         final cardWidth = constraints.maxWidth * 0.92;
 
         return SizedBox(
-          height: 172,
+          height: 180,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             clipBehavior: Clip.none,

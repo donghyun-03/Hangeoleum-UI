@@ -1,6 +1,7 @@
 // 개발용 샘플 데이터 (화면 흐름도 시안 내용 기준). 실제 데이터는 API 연결 후 교체합니다.
 // - STEP 3 · 도전과 알림은 온통청년 실제 정책 (ontong_programs.dart, tool/ontong_to_dart.py 로 생성)
 // - 날짜는 앱을 실행한 날 기준으로 계산해서 항상 '최근' 데이터처럼 보이게 합니다 (_daysAgo, _inDays)
+import '../models/diagnosis_profile.dart';
 import '../models/models.dart';
 import 'ontong_programs.dart';
 
@@ -44,6 +45,18 @@ const mockUser = AppUser(
   diagnosed: true,
   currentStep: 1,
 );
+
+/// 시연용 진단 답 (김지은: 교육·공모전 탐색 중, IT·데이터, 대기업, 데이터 분석 직무)
+const mockDiagnosis = DiagnosisProfile({
+  'current_status': '취업을 위해 교육이나 공모전을 알아보고 있어요.',
+  'primary_goal': '경험 쌓기',
+  'time_commitment': '30분 정도',
+  'interest': 'IT·데이터',
+  'company_preference': '대기업',
+  'target_clarity': '직무만 정해뒀어요',
+  'target_job_name': '데이터 분석',
+  'readiness_assets': '포트폴리오만 있어요',
+});
 
 // STEP 1 미션은 마감일이 없습니다 (작은 성취 — 부담 없이 시작)
 const mockMissions = <Mission>[
