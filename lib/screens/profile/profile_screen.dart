@@ -422,7 +422,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   child: Text('등급', style: AppText.body),
                 ),
-                Text('(1~9등급, 전 과목 평균)', style: AppText.caption),
+                Flexible(child: Text('(1~9등급, 전 과목 평균)', style: AppText.caption)),
               ],
             ),
           ] else ...[
@@ -461,10 +461,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 builder: (fieldContext) => InkWell(
                   borderRadius: BorderRadius.circular(AppRadius.md),
                   onTap: () => _pickScale(fieldContext),
-                  child: SizedBox(
-                    width: 44,
-                    height: 32,
+                  // 폭을 고정하지 않고 글자만큼 (고정 44px 이면 큰 글꼴에서 넘침)
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(minWidth: 44, minHeight: 32),
                     child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(

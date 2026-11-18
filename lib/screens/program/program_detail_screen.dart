@@ -75,11 +75,12 @@ class ProgramDetailScreen extends StatelessWidget {
               child: Row(
                 children: [
                   // STEP 3·4 공고는 홈 '나의 활동'에 추가할 수 있어요 (홈에서 완료 체크 → 기록)
+                  // 추가 버튼은 내용만큼만, 신청 버튼이 남은 폭을 다 씀
                   if (homeAddable) ...[
-                    Expanded(
-                      child: AppButton(
-                        label: inHome ? '홈에 추가됨' : '활동에 추가',
+                    AppButton(
+                        label: inHome ? '추가됨' : '활동 추가',
                         icon: inHome ? Icons.check : Icons.add,
+                        expand: false,
                         variant: ButtonVariant.outline,
                         onPressed: inHome
                             ? null
@@ -87,7 +88,6 @@ class ProgramDetailScreen extends StatelessWidget {
                                 state.addHomeOpportunity(id: programId, step: opportunity.step);
                                 showToast(context, '홈 나의 활동에 추가했어요');
                               },
-                      ),
                     ),
                     const SizedBox(width: 8),
                   ],
